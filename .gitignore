@@ -42,3 +42,6 @@ Thumbs.db
 
 # Backup git bundle
 *.bundle
+
+# Token publish sementara (jangan di-commit)
+push_token.txt
