@@ -1,0 +1,12 @@
+# Normalisasi line ending supaya diff di GitHub konsisten
+* text=auto eol=lf
+
+*.py    text diff=python
+*.md    text diff=markdown
+*.txt   text
+*.json  text
+*.yml   text
+*.bat   text eol=crlf
+*.png   binary
+*.pdf   binary
+*.bundle binary

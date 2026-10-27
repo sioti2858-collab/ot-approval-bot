@@ -1,0 +1,62 @@
+========================================
+   OT APPROVAL BOT - QUICK START
+========================================
+
+PERSIAPAN (sekali saja):
+------------------------
+1. Buka terminal di folder ini
+2. pip install -r requirements.txt
+3. copy .env.example .env   lalu isi datanya
+   (lihat README.md bagian "Mulai Cepat")
+
+CARA MENJALANKAN BOT:
+---------------------
+1. Double-click "start_bot.bat"
+2. Tunggu sampai muncul "BOT STARTED SUCCESSFULLY!"
+3. Bot siap digunakan! Buka di Telegram, kirim /start
+
+CARA MONITOR LOG:
+-----------------
+1. Double-click "monitor_bot.bat"
+2. Lihat aktivitas bot secara real-time
+
+CARA MELIHAT STATS:
+------------------
+1. Double-click "stats_bot.bat"
+2. Lihat statistik penggunaan bot
+
+CARA STOP BOT:
+--------------
+1. Tekan Ctrl+C di jendela bot
+2. Tekan Enter untuk keluar
+
+========================================
+   MENU TELEGRAM BOT
+========================================
+
+/start   - Memulai bot
+/help    - Panduan penggunaan
+Ajukan Lembur  - Form pengajuan lembur
+Ajukan Overday - Form pengajuan overday
+Pengajuan Saya - Lihat pengajuan sendiri
+Daftar Approval - Untuk approver saja
+
+========================================
+   LEVEL APPROVAL
+========================================
+
+Level 1 - Supervisor langsung
+Level 2 - Section Head
+Level 3 - Manager (khusus pengajuan lembur)
+
+Nama, jabatan, dan ID Telegram approver diatur di file .env
+(APPROVER_1_NAME, APPROVER_1_USER_ID, APPROVER_1_TITLE, dst.)
+
+========================================
+   PENGESAHAN DOKUMEN
+========================================
+
+Setelah semua level menyetujui, PDF dibuat otomatis lalu dikirim
+ke HR, pemohon, dan approver tambahan (EXTRA_DOCUMENT_RECIPIENT_USER_IDS).
+
+========================================

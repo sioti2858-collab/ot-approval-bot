@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+
+# Environment variables (contains secrets)
+.env
+.env.local
+.env.*.local
+
+# Google Service Account credentials (private key - NEVER commit)
+credentials.json
+*service_account*.json
+*.credentials.json
+
+# Aset lokal (logo & tanda tangan asli) - jangan di-commit
+local_assets/
+
+# Logs
+*.log
+logs/
+
+# PDF output (temp files)
+*.pdf
+pdfs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Claude
+.claude/
+
+# Backup git bundle
+*.bundle
