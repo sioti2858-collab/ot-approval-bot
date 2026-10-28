@@ -1,68 +1,67 @@
-# Cara Publish ke GitHub
+# Status Publish
 
-Semua persiapan sudah beres. Yang tersisa cuma **2 langkah**.
+Repo ini **sudah tayang** di <https://github.com/sioti2858-collab/ot-approval-bot> (public).
+
+Kalau Anda clone ulang dari nol, ikuti saja **[README.md](README.md)** bagian
+"Mulai Cepat". File ini hanya catatan buat pemilik repo.
 
 ---
 
-## Langkah 1 — Bikin repo di github.com
+## Yang sudah dilakukan
 
-1. Buka <https://github.com/new>
-2. **Owner**: `sioti2858-collab`
-3. **Repository name**: `ot-approval-bot`
-4. **Pilih Public** (gratis, tanpa batas)
-5. **Jangan centang** "Add a README file", "Add .gitignore", atau "Choose a license"
-   (repo Anda sudah punya semuanya — centang ini nanti bikin konflik)
-6. Klik **Create repository**
+| Item | Status |
+|---|---|
+| Repo | ✅ https://github.com/sioti2858-collab/ot-approval-bot (public) |
+| Deskripsi & topics | ✅ terpasang |
+| Branch | `main` (4 commit) |
+| CI (GitHub Actions) | ✅ hijau — <https://github.com/sioti2858-collab/ot-approval-bot/actions> |
+| Data pribadi | ✅ nol (scan 48 entri file di repo: aman) |
 
-## Langkah 2 — Push dari komputer ini
+## GitHub API — perlu izin apa saja
 
-Buka terminal di folder `D:\ot-approval-bot`, lalu jalankan:
+Fine-grained PAT (`github_pat_...`) yang dipakai untuk publish:
+
+| Izin | Level | Dipakai untuk |
+|---|---|---|
+| Administration | Read and write | membuat repo, set deskripsi & topics |
+| Contents | Read and write | push commit |
+| Workflows | Write | hanya boleh ada di file `.github/workflows/*.yml` |
+
+> Kalau token hanya punya "Contents" saja, push akan ditolak dengan
+> `refusing to allow a Personal Access Token to create or update workflow`.
+
+---
+
+## Perawatan harian
 
 ```bash
-git push -u origin main
+git status              # cek perubahan
+git add . && git commit -m "pesan"
+git push                # kirim ke GitHub (branch main)
 ```
 
-Saat GitHub minta password:
-- **Username**: `sioti2858-collab`
-- **Password**: pakai **Personal Access Token**, bukan password biasa.
-  Buat di <https://github.com/settings/tokens> → *Fine-grained tokens* →
-  centang **Contents: Read and write** → Generate → salin tokennya.
+## Kalau perlu publish ulang / buat repo baru
 
-> Kalau `git push` sudah berhasil dan mau push lagi di kemudian hari, cukup `git push` saja.
+1. Bikin **fine-grained token**: <https://github.com/settings/tokens>
+   → Repository permissions: Administration *(write)*, Contents *(write)*, Workflows *(write)*
+   → Repository access: **All public repositories**
+2. Simpan token di file teks, jangan langsung di chat/prompt
+3. Push pakai header auth sementara supaya token tidak tersimpan di `.git/config`:
 
----
+   ```bash
+   TOKEN=$(head -1 push_token.txt | tr -d '\r\n')
+   B64=$(printf 'x-access-token:%s' "$TOKEN" | base64 | tr -d '\n')
+   GIT_TERMINAL_PROMPT=0 git -c http.extraHeader="Authorization: Basic $B64" push -u origin main
+   rm -f push_token.txt
+   ```
 
-## Cek hasil
-
-Buka <https://github.com/sioti2858-collab/ot-approval-bot>
-
-Yang seharusnya Anda lihat:
-
-| Bagian | Isi |
-|---|---|
-| Tab **Code** | 39 file, README tampil rapi |
-| Tab **Actions** | workflow "CI" jalan hijau (hijau = semua uji lulus) |
-| Tab **Issues** | 2 template (Laporan Bug & Permintaan Fitur) |
-| Tombol **About** | bisa diisi deskripsi & tag: `telegram`, `bot`, `pdf`, `google-sheets` |
+4. **Revoke tokennya** setelah selesai di <https://github.com/settings/tokens>
 
 ---
 
-## Kalau mau memamerkan bot di README
+## Jangan pernah
 
-Tambah badge di bagian atas `README.md`:
-
-```markdown
-![GitHub Actions](https://github.com/sioti2858-collab/ot-approval-bot/actions/workflows/ci.yml/badge.svg)
-```
-
----
-
-## Catatan penting
-
-- **Jangan** pernah `git push --all` atau `git push --mirror`. Branch `main` saja
-  yang aman untuk dikirim.
-- **Jangan** commit `.env` atau `credentials.json`. Keduanya sudah di `.gitignore`.
-- Kalau butuh password manager di komputer ini:
-  <https://git-scm.com/book/en/v2/Git-Tools-Credential-Storage>
-- Kalau repo ingin diubah jadi **privat** (untuk versi internal asli):
-  GitHub → **Settings → General → Danger Zone → Change visibility**
+- Commit `.env` atau `credentials.json` (keduanya sudah di `.gitignore`)
+- `git push --all` / `git push --mirror` — hanya `main` yang aman
+- Menaruh tanda tangan asli atau logo perusahaan di dalam `png/`
+  (folder `png/` hanya berisi placeholder; file asli ada di `local_assets/`)
