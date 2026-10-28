@@ -207,19 +207,67 @@ python tools/test_flow.py         # alur overtime + pesan error
 
 ---
 
-## Menjalankan 24/7 (Gratis)
+## Menjalankan 24/7
 
 | Opsi | Gratis? | Catatan |
 |---|---|---|
 | **PC/laptop sendiri** | ✅ | Paling stabil. Pakai `start_bot.bat` + Windows Task Scheduler agar auto-start |
-| **Railway** | ✅ | Free tier, tinggal isi environment variables |
-| **Render** | ✅ | Free tier, tapi service bisa tidur → bot harus tetap aktif |
-| **Oracle Cloud Always Free** | ✅ | VM 1 core / 1 GB, paling stabil di cloud gratis |
-| **Google Cloud Run** | ✅ | Free tier ada, tapi butuh konfigurasi tambahan untuk bot |
+| **Oracle Cloud Always Free** | ✅ | VM 1 core / 1 GB, 24/7, beneran 0 rupiah (signupnya sering ditolak, tapi coba) |
+| **Railway** | ⚠️ | Trial $5 / 30 hari tanpa kartu. Setelah itu paket Free hanya menyediakan kredit $1/bulan — bot 24/7 di 512MB biasanya ~$2–5/bulan, jadi perlu kartu + paket Hobby ($5/bln, kredit $5 → net ~0) |
+| **Render / Koyeb** | ❌ untuk bot | Free tier tidur setelah 15 menit idle → long-polling putus |
+| **GitHub Actions** | ❌ untuk bot | Runner-nya ephemeral, maks 6 jam/run, kuota 2000 menit/bulan |
 
-> **Rekomendasi:** untuk satu tim kecil, jalankan di PC yang nyala 24 jam
-> (atau Raspberry Pi). Gratis, mudah, dan tidak ada yang perlu dinyalakan ulang.
-> Kalau mau cloud, **Railway** paling gampang.
+> **Rekomendasi:** kalau benar-benar mau 0 rupiah, jalankan di PC yang nyala 24 jam
+> (atau Raspberry Pi). Kalau mau jalan di cloud dan siap pakai kartu, **Railway** paling
+> gampang — repo ini sudah punya `Dockerfile` + `railway.json` yang siap pakai.
+
+### Deploy ke Railway
+
+Repo ini sudah berisi `Dockerfile` dan `railway.json`, jadi tidak perlu konfigurasi build manual.
+
+1. <https://railway.app/new> → **New Project → Deploy from GitHub repo** → pilih repo ini
+2. Railway otomatis memakai `Dockerfile` (lihat `railway.json`)
+3. Buka tab **Variables** → isi sesuai tabel di bawah
+4. Tab **Settings → Deploy → Start Command**: `python main.py`
+5. Deploy. Cek tab **Logs** — harus muncul `BOT STARTED SUCCESSFULLY!`
+
+Environment variables yang wajib diisi:
+
+```
+TELEGRAM_BOT_TOKEN          = token dari @BotFather
+GOOGLE_SERVICE_ACCOUNT_JSON = isi penuh credentials.json (satu baris JSON)
+GOOGLE_SHEET_ID             = ID Sheet
+GOOGLE_DRIVE_FOLDER_ID      = ID folder Drive
+COMPANY_NAME                = PT. Makmur Sejahtera Wisesa
+APPROVER_1_USER_ID / _NAME / _TITLE
+APPROVER_2_USER_ID / _NAME / _TITLE
+APPROVER_3_USER_ID / _NAME / _TITLE
+HR_USER_ID
+```
+
+> **`GOOGLE_SERVICE_ACCOUNT_JSON`** menerima **isi JSON**-nya, bukan path file.
+> Tempel seluruh isi `credentials.json` dalam satu baris. Ini karena file
+> kredensial tidak boleh ada di repo maupun di image container.
+
+> **Tanda tangan & logo di cloud:** file PNG asli tidak boleh masuk repo.
+> Pakai varian `*_ESIGN_BASE64` / `LOGO_BASE64` — isi dengan isi file PNG
+> dalam base64. Bot akan menuliskannya ke disk saat start:
+> ```bash
+> base64 -w0 tanda_tangan_1.png     # Linux/macOS
+> certutil -encode tanda_tangan_1.png tanda_tangan_1.b64   # Windows
+> ```
+
+> ⚠️ **Hanya boleh ada SATU instance polling per token Telegram.** Kalau bot
+> lokal Anda masih jalan, instance cloud akan gagal dengan pesan *"BOT GAGAL
+> START - KONFLIK"*. Stop yang lokal dulu (atau vice versa).
+
+### Deploy dengan Docker biasa
+
+```bash
+docker build -t ot-approval-bot .
+docker run -d --name ot-bot --env-file .env -v "$(pwd)/pdfs:/app/pdfs" ot-approval-bot
+docker logs -f ot-bot
+```
 
 ### Environment variables di hosting
 

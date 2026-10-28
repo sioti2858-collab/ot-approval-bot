@@ -1,0 +1,39 @@
+# Jangan pernah masuk ke image container: kredensial & aset pribadi
+.git
+.gitignore
+.gitattributes
+.github
+
+.env
+.env.local
+.env.*.local
+credentials.json
+*service_account*.json
+*.credentials.json
+
+# Aset lokal (tanda tangan & logo asli)
+local_assets/
+
+# Output runtime
+pdfs/
+logs/
+*.log
+*.pdf
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyc
+.venv/
+venv/
+env/
+
+# Editor & OS
+.vscode/
+.idea/
+.claude/
+.DS_Store
+Thumbs.db
+
+# Backup
+*.bundle

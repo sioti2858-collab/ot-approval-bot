@@ -20,6 +20,7 @@ load_dotenv()
 
 import asyncio
 from telegram import Update, Bot
+from telegram.error import Conflict
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -149,6 +150,16 @@ async def main_async():
     print("  OT APPROVAL BOT - STARTING")
     print("=" * 50)
 
+    # Fail fast dengan pesan yang jelas, bukan error cryptic dari Telegram.
+    if not TELEGRAM_BOT_TOKEN:
+        print("\n" + "=" * 50)
+        print("  BOT GAGAL START - KONFIGURASI BELUM LENGKAP")
+        print("=" * 50)
+        print("  TELEGRAM_BOT_TOKEN belum diisi.")
+        print("  Isi .env (salin dari .env.example) atau set environment variable.")
+        print("=" * 50 + "\n")
+        raise SystemExit(1)
+
     log_event("SYS", "Bot starting...")
     log_event("SYS", f"Log dir: {os.path.abspath(LOG_DIR)}")
 
@@ -176,7 +187,27 @@ async def main_async():
     # Initialize and start polling
     await app.initialize()
     await app.start()
-    await app.updater.start_polling(drop_pending_updates=True)
+    try:
+        await app.updater.start_polling(drop_pending_updates=True)
+    except Conflict:
+        # Telegram hanya mengizinkan satu poller untuk satu token. Kalau
+        # error ini muncul, bot ini sudah jalan di tempat lain (misal
+        # instance lokal masih hidup sementara versi cloud baru start).
+        message = (
+            "Bot sudah berjalan di instance lain dengan token yang sama.\n"
+            "Hentikan instance yang lama (misal: python main.py di komputer),\n"
+            "lalu start ulang yang ini."
+        )
+        log_event("SYS", f"Conflict: {message}")
+        print("\n" + "=" * 50)
+        print("  BOT GAGAL START - KONFLIK")
+        print("=" * 50)
+        print(message)
+        print("=" * 50 + "\n")
+        await app.updater.stop()
+        await app.stop()
+        await app.shutdown()
+        raise SystemExit(1)
 
     log_event("SYS", "Bot started! Polling active.")
 

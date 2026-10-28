@@ -7,6 +7,7 @@ diisi lewat .env (lihat .env.example) supaya repo ini aman dipakai ulang
 oleh orang lain.
 """
 
+import base64
 import os
 
 from dotenv import load_dotenv
@@ -14,6 +15,36 @@ from dotenv import load_dotenv
 # Muat .env sekali di sini supaya semua entry point (main.py, monitor.py,
 # tools/*.py) membaca konfigurasi yang sama.
 load_dotenv()
+
+# Folder tempat file gambar (tanda tangan / logo) yang dikirim lewat
+# environment variable ditulis. Folder ini sudah masuk .gitignore.
+ASSET_DIR = os.getenv("ASSET_DIR", "local_assets")
+
+
+def _env_asset(b64_var: str, path_var: str, default_path: str, filename: str) -> str:
+    """
+    Tentukan path file gambar (tanda tangan / logo).
+
+    Kalau <b64_var> diisi, isinya (PNG dalam base64) ditulis ke file lokal
+    lalu path-nya dikembalikan. Ini dipakai saat bot jalan di cloud: file
+    PNG tidak boleh ikut di-commit, jadi dikirim lewat environment variable.
+
+    Kalau <b64_var> kosong, path biasa dari <path_var> dipakai.
+    """
+    encoded = os.getenv(b64_var, "").strip()
+    if encoded:
+        try:
+            os.makedirs(ASSET_DIR, exist_ok=True)
+            target = os.path.join(ASSET_DIR, filename)
+            if not os.path.exists(target):
+                with open(target, "wb") as handle:
+                    handle.write(base64.b64decode(encoded))
+            return target
+        except Exception:
+            # Asset gagal ditulis -> pakai path biasa (kalau ada), jangan
+            # sampai seluruh bot gagal start.
+            pass
+    return os.getenv(path_var, default_path)
 
 
 def _env_int(name: str, default: int = 0) -> int:
@@ -60,8 +91,9 @@ GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "")
 # Nama perusahaan, dicetak di header PDF.
 COMPANY_NAME = os.getenv("COMPANY_NAME", "PT. Nama Perusahaan")
 
-# Path logo untuk header PDF.
-LOGO_PATH = os.getenv("LOGO_PATH", "png/logo.png")
+# Path logo untuk header PDF. Bisa juga diisi lewat LOGO_BASE64 (PNG dalam
+# base64) supaya bisa dipakai di cloud tanpa menaruh file PNG di repo.
+LOGO_PATH = _env_asset("LOGO_BASE64", "LOGO_PATH", "png/logo.png", "logo.png")
 
 # ---------------------------------------------------------------------------
 # Approver & HR
@@ -74,19 +106,28 @@ APPROVERS = {
         "name": os.getenv("APPROVER_1_NAME", "Approver 1"),
         "title": os.getenv("APPROVER_1_TITLE", "Direct Supervisor"),
         "user_id": _env_int("APPROVER_1_USER_ID"),
-        "esign": os.getenv("APPROVER_1_ESIGN", "png/esign_approver_1.png"),
+        "esign": _env_asset(
+            "APPROVER_1_ESIGN_BASE64", "APPROVER_1_ESIGN",
+            "png/esign_approver_1.png", "esign_approver_1.png",
+        ),
     },
     "approval_2": {
         "name": os.getenv("APPROVER_2_NAME", "Approver 2"),
         "title": os.getenv("APPROVER_2_TITLE", "Section Head"),
         "user_id": _env_int("APPROVER_2_USER_ID"),
-        "esign": os.getenv("APPROVER_2_ESIGN", "png/esign_approver_2.png"),
+        "esign": _env_asset(
+            "APPROVER_2_ESIGN_BASE64", "APPROVER_2_ESIGN",
+            "png/esign_approver_2.png", "esign_approver_2.png",
+        ),
     },
     "approval_3": {
         "name": os.getenv("APPROVER_3_NAME", "Approver 3"),
         "title": os.getenv("APPROVER_3_TITLE", "Manager"),
         "user_id": _env_int("APPROVER_3_USER_ID"),
-        "esign": os.getenv("APPROVER_3_ESIGN", "png/esign_approver_3.png"),
+        "esign": _env_asset(
+            "APPROVER_3_ESIGN_BASE64", "APPROVER_3_ESIGN",
+            "png/esign_approver_3.png", "esign_approver_3.png",
+        ),
     },
 }
 
