@@ -199,10 +199,11 @@ ot-approval-bot/
 Semua uji berjalan lokal tanpa koneksi Telegram:
 
 ```bash
-python tools/test_guides.py       # panduan perintah
-python tools/test_idempotency.py  # anti double-tap & batas tanggal
-python tools/test_overday_flow.py # alur overday
-python tools/test_flow.py         # alur overtime + pesan error
+python tools/test_guides.py         # panduan perintah
+python tools/test_idempotency.py    # anti double-tap & batas tanggal
+python tools/test_overday_flow.py   # alur overday
+python tools/test_document_storage.py  # mode arsip lokal / Telegram / Drive
+python tools/test_flow.py           # alur overtime + pesan error
 ```
 
 ---
@@ -287,6 +288,32 @@ docker logs -f ot-bot
 Di dashboard Railway/Render, isi **persis sama** dengan isi `.env` Anda
 (`TELEGRAM_BOT_TOKEN`, `GOOGLE_SHEET_ID`, `APPROVER_*`, `HR_USER_ID`, dll).
 Jangan commit `.env` ke git.
+
+---
+
+## Di mana PDF-nya tersimpan?
+
+Tiga mode, diatur lewat `.env`:
+
+| Mode | Setelan | Link di Sheet (kolom O) | PDF tersimpan di server? |
+|---|---|---|---|
+| **Telegram saja** ⭐ | `SAVE_PDF_LOCALLY=false` | `telegram` | ❌ tidak |
+| **Telegram + arsip lokal** | `SAVE_PDF_LOCALLY=true` (default) | `local:pdfs/OT_...pdf` | ✅ folder `pdfs/` |
+| **Telegram + Google Drive** | `DRIVE_UPLOAD_ENABLED=true` | link Drive | ✅ di Drive |
+
+⭐ **Mode "Telegram saja" adalah yang disarankan untuk bot di cloud.** Folder
+container hilang setiap redeploy, jadi arsip lokal tidak ada gunanya. PDF
+langsung dikirim sebagai file terlampir ke:
+
+- **HR**
+- **pemohon** pengajuan
+- **approver tambahan** (`EXTRA_DOCUMENT_RECIPIENT_USER_IDS`)
+
+Nomor Telegram lain otomatis ditolak oleh `services/delivery.py`.
+
+> Catatan: tanpa arsip server, dokumen hanya ada di chat Telegram. Kalau tim
+> butuh arsip yang bisa dicari ulang (misal untuk audit), aktifkan **Google
+> Drive** — link-nya tersimpan permanen di kolom O.
 
 ---
 

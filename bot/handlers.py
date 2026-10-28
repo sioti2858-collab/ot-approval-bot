@@ -20,6 +20,8 @@ from config import (
     HR_USER_ID,
     MAX_FUTURE_DAYS,
     MAX_PAST_DAYS,
+    PDF_MARKER_TELEGRAM,
+    SAVE_PDF_LOCALLY,
 )
 from bot.keyboards import (
     get_main_menu_keyboard,
@@ -1288,18 +1290,26 @@ async def handle_approval(query, user_id, data, approved: bool):
                     pdf_content = pdf_service.generate_ot_form(request)
                     logger.info(f"Overtime PDF generated successfully for request #{row_id}")
 
-                # Save PDF locally
+                # Arsip lokal. Kalau SAVE_PDF_LOCALLY=false (mode cloud),
+                # PDF tidak menyentuh disk sama sekali - dikirim ke Telegram
+                # saja, karena folder container hilang tiap redeploy.
                 import os
-                os.makedirs("pdfs", exist_ok=True)
                 if request.request_type == "overday":
                     local_file_name = f"pdfs/OD_{row_id}_{request.user_name}_{request.od_start_date}.pdf"
                     drive_file_name = f"OD_{row_id}_{request.user_name}_{request.od_start_date}.pdf"
                 else:
                     local_file_name = f"pdfs/OT_{row_id}_{request.user_name}_{request.ot_date}.pdf"
                     drive_file_name = f"OT_{row_id}_{request.user_name}_{request.ot_date}.pdf"
-                with open(local_file_name, "wb") as f:
-                    f.write(pdf_content)
-                logger.info(f"PDF saved locally: {local_file_name}")
+
+                if SAVE_PDF_LOCALLY:
+                    os.makedirs("pdfs", exist_ok=True)
+                    with open(local_file_name, "wb") as f:
+                        f.write(pdf_content)
+                    logger.info(f"PDF saved locally: {local_file_name}")
+                else:
+                    logger.info(
+                        "Local archive disabled - PDF hanya dikirim via Telegram"
+                    )
 
                 # Upload ke Google Drive hanya kalau DRIVE_UPLOAD_ENABLED=true.
                 # Secara default nonaktif: service account tidak punya storage
@@ -1320,8 +1330,16 @@ async def handle_approval(query, user_id, data, approved: bool):
                 if pdf_url:
                     request.pdf_url = pdf_url
                     document_note = f"📎 {pdf_url}"
-                else:
+                elif SAVE_PDF_LOCALLY:
                     request.pdf_url = f"local:{local_file_name}"
+                    document_note = (
+                        "📎 Dokumen dikirim sebagai file terlampir ke: "
+                        f"{delivery_describe_recipients(request.user_id)}"
+                    )
+                else:
+                    # Mode Telegram-only: tidak ada arsip lokal dan tidak ada
+                    # link Drive, jadi kolom O hanya berisi penanda.
+                    request.pdf_url = PDF_MARKER_TELEGRAM
                     document_note = (
                         "📎 Dokumen dikirim sebagai file terlampir ke: "
                         f"{delivery_describe_recipients(request.user_id)}"
@@ -1548,6 +1566,32 @@ async def handle_view_request(query, user_id, data):
         pass
 
 
+def build_document_view_text(row_id: int, pdf_url: str) -> str:
+    """
+    Susun teks untuk tombol "Lihat PDF".
+
+    Dipisah jadi fungsi sendiri supaya bisa diuji tanpa koneksi
+    Telegram maupun Google Sheets.
+    """
+    if pdf_url and not pdf_url.startswith("local:") and pdf_url != PDF_MARKER_TELEGRAM:
+        body = f"Link Google Drive:\n{pdf_url}"
+    else:
+        body = (
+            "Dokumen ini dikirim sebagai file terlampir di chat ini "
+            "saat pengajuan disetujui.\n\n"
+        )
+        if pdf_url and pdf_url.startswith("local:"):
+            body += f"📁 Arsip di server: {pdf_url[len('local:'):]}"
+        else:
+            body += (
+                "📨 Dokumen dikirim langsung ke chat Telegram "
+                "dan tidak disimpan di server.\n"
+                "Kalau Anda tidak menemukan lampirannya, "
+                "cari pesan pengajuan ini di chat."
+            )
+    return f"📄 *Dokumen #{row_id}*\n\n" + body
+
+
 async def handle_view_pdf(query, user_id, data):
     """View PDF link for a request"""
     row_id = int(data.split("_")[-1])
@@ -1579,16 +1623,7 @@ async def handle_view_pdf(query, user_id, data):
 
     await safe_edit(
         query,
-        f"📄 *Dokumen #{row_id}*\n\n"
-        + (
-            f"Link Google Drive:\n{request.pdf_url}"
-            if not request.pdf_url.startswith("local:")
-            else (
-                "Dokumen ini dikirim sebagai file terlampir di chat ini "
-                "saat pengajuan disetujui.\n\n"
-                f"📁 Arsip di server: {request.pdf_url[len('local:'):]}"
-            )
-        ),
+        build_document_view_text(row_id, request.pdf_url),
         parse_mode="Markdown",
         reply_markup=get_back_to_menu_keyboard(),
     )

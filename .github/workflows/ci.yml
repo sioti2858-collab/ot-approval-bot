@@ -35,4 +35,5 @@ jobs:
           python tools/test_guides.py
           python tools/test_idempotency.py
           python tools/test_overday_flow.py
+          python tools/test_document_storage.py
           python tools/test_flow.py

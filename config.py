@@ -180,6 +180,30 @@ DRIVE_UPLOAD_ENABLED = os.getenv("DRIVE_UPLOAD_ENABLED", "false").strip().lower(
 )
 
 # ---------------------------------------------------------------------------
+# Penyimpanan dokumen
+# ---------------------------------------------------------------------------
+
+# Apakah PDF hasil approval ikut diarsipkan ke folder "pdfs/" di server?
+#
+# true  (default) -> PDF ditulis ke folder pdfs/ DAN dikirim sebagai file
+#                    terlampir ke penerima. Berguna kalau bot jalan di
+#                    komputer sendiri dan arsip lokal ingin consulted.
+# false           -> PDF TIDAK disimpan di server, hanya dikirim sebagai file
+#                    terlampir ke Telegram. Ini mode yang disarankan untuk
+#                    bot yang jalan di cloud: folder container hilang tiap
+#                    redeploy, jadi arsip lokal tidak ada artinya.
+#
+# Kolom O di Google Sheet tetap terisi: berisi link Drive (kalau upload Drive
+# aktif) atau penanda "telegram" (kalau tidak).
+SAVE_PDF_LOCALLY = os.getenv("SAVE_PDF_LOCALLY", "true").strip().lower() in (
+    "1", "true", "yes", "on",
+)
+
+# Penanda yang dipakai di kolom O Sheet ketika dokumen hanya dikirim via
+# Telegram (tidak ada link yang bisa dibuka ulang).
+PDF_MARKER_TELEGRAM = "telegram"
+
+# ---------------------------------------------------------------------------
 # Distribusi dokumen
 # ---------------------------------------------------------------------------
 
