@@ -231,6 +231,19 @@ Repo ini sudah berisi `Dockerfile` dan `railway.json`, jadi tidak perlu konfigur
 4. Tab **Settings → Deploy → Start Command**: `python main.py`
 5. Deploy. Cek tab **Logs** — harus muncul `BOT STARTED SUCCESSFULLY!`
 
+> **Catatan port/healthcheck.** Bot ini memakai *long polling* Telegram, jadi
+> **tidak butuh** port HTTP publik. Railway akan otomatis mendeteksi bahwa
+> tidak ada port yang perlu dibuka → biarkan saja tanpa *Public Networking*.
+> biarkan saja tanpa *Public Networking*. Kalau Railway menandai deploy
+> "failed" karena timeout healthcheck, buka **Settings → Deploy → Healthcheck
+> Path** dan kosongkan (atau isi `/` dan biarkan). Yang penting: log menunjukkan
+> `BOT STARTED SUCCESSFULLY!`.
+>
+> ⚠️ Railway **hanya boleh menjalankan 1 replica** untuk 1 token Telegram.
+> Kalau botnya restart otomatis, `drop_pending_updates=True` membuat
+> update yang belum sempat diproses saat restart ikut hilang — normal untuk
+> bot form-based.
+
 Environment variables yang wajib diisi:
 
 ```
