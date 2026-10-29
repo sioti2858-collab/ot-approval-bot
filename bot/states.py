@@ -2,7 +2,10 @@
 Conversation States for OT Request Flow
 """
 
+import logging
 from enum import Enum
+
+logger = logging.getLogger("OTBot")
 
 
 class ConversationState(Enum):
@@ -56,18 +59,82 @@ class ConversationContext:
 
 
 # In-memory storage for conversation contexts
-# In production, use Redis or database for persistence
+# Cache cepat. Kalau persistensi aktif (STATE_PERSISTENCE_ENABLED),
+# state juga ditulis ke tab Google Sheets supaya tidak hilang saat
+# proses bot restart.
 _conversation_contexts = {}
+
+# Backend persistensi (opsional). Di-set dari main.py saat start.
+_state_store = None
+
+
+def set_state_store(store):
+    """Aktifkan persistensi state (backend mis. services.state_store)."""
+    global _state_store
+    _state_store = store
+
+
+def get_state_store():
+    """Backend persistensi aktif, atau None kalau tidak diaktifkan."""
+    return _state_store
+
+
+def _hydrate(user_id: int, context: ConversationContext) -> ConversationContext:
+    """Isi context dari backend persistensi kalau ada."""
+    if _state_store is None:
+        return context
+
+    try:
+        saved = _state_store.load(user_id)
+    except Exception as error:
+        logger.warning(f"Gagal memuat state user {user_id}: {error}")
+        return context
+
+    if not saved:
+        return context
+
+    try:
+        context.state = ConversationState(saved["state"])
+        context.data = saved.get("data") or {}
+        logger.info(
+            f"State user {user_id} dipulihkan dari persistensi: {saved['state']}"
+        )
+    except Exception as error:
+        logger.warning(f"State user {user_id} tidak bisa dipulihkan: {error}")
+
+    return context
 
 
 def get_conversation_context(user_id: int) -> ConversationContext:
     """Get or create a conversation context for a user"""
     if user_id not in _conversation_contexts:
-        _conversation_contexts[user_id] = ConversationContext(user_id)
+        context = ConversationContext(user_id)
+        _conversation_contexts[user_id] = _hydrate(user_id, context)
     return _conversation_contexts[user_id]
+
+
+def persist_conversation_context(user_id: int):
+    """
+    Simpan state user ke backend persistensi.
+
+    Dipanggil setelah setiap input user, supaya state terakhir selalu
+    tersimpan - penting kalau proses bot bisa restart kapan saja.
+    """
+    context = _conversation_contexts.get(user_id)
+    if context is None or _state_store is None:
+        return
+    try:
+        _state_store.save(user_id, context.state.value, context.data)
+    except Exception as error:
+        logger.warning(f"Gagal persist state user {user_id}: {error}")
 
 
 def clear_conversation_context(user_id: int):
     """Clear a user's conversation context"""
     if user_id in _conversation_contexts:
         del _conversation_contexts[user_id]
+    if _state_store is not None:
+        try:
+            _state_store.delete(user_id)
+        except Exception as error:
+            logger.warning(f"Gagal hapus state user {user_id}: {error}")

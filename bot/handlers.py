@@ -37,6 +37,7 @@ from bot.keyboards import (
 from bot.states import (
     ConversationState,
     get_conversation_context,
+    persist_conversation_context,
     clear_conversation_context,
 )
 from models.ot_request import OTRequest, RequestStatus, ApprovalStatus, ApprovalInfo
@@ -478,6 +479,10 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await handle_back_to_approval_list(query, user_id, data)
     elif data == "back_to_my_requests":
         await handle_my_requests(query, user_id)
+
+    # Simpan state terakhir user, supaya form yang sedang diisi tidak
+    # hilang kalau proses bot restart (mis. runner GitHub Actions).
+    persist_conversation_context(user_id)
 
 
 # =============================================================================

@@ -204,6 +204,40 @@ SAVE_PDF_LOCALLY = os.getenv("SAVE_PDF_LOCALLY", "true").strip().lower() in (
 PDF_MARKER_TELEGRAM = "telegram"
 
 # ---------------------------------------------------------------------------
+# State percakapan
+# ---------------------------------------------------------------------------
+
+# Simpan state percakapan (form yang sedang diisi) ke tab Google Sheets,
+# bukan cuma di RAM.
+#
+# Default: false. Nyalakan kalau bot berjalan sebagai GitHub Actions atau
+# container cloud, di mana proses sering restart - tanpa ini, user yang
+# sedang mengisi form kehilangan tempatnya tiap restart.
+#
+# Tab dibuat otomatis di spreadsheet yang sama (nama tab: STATE_TAB_NAME).
+# Semua error diabaikan: kalau Sheets tidak bisa diakses, bot tetap jalan
+# dengan state in-memory seperti biasa.
+STATE_PERSISTENCE_ENABLED = os.getenv("STATE_PERSISTENCE_ENABLED", "false").strip().lower() in (
+    "1", "true", "yes", "on",
+)
+
+# Nama tab untuk menyimpan state.
+STATE_TAB_NAME = os.getenv("STATE_TAB_NAME", "bot_state").strip()
+
+# Berapa jam state percakapan dianggap masih valid. Setelah lewat, state
+# dianggap IDLE (user dianggap mulai dari awal).
+STATE_TTL_HOURS = _env_int("STATE_TTL_HOURS", 24)
+
+# Buang update yang belum diproses saat bot start.
+#
+# Default: true (perilaku normal untuk bot yang start sekali).
+# Set FALSE untuk bot yang sering restart - kalau true, setiap restart
+# akan membuang pesan user yang belum sempat diproses.
+DROP_PENDING_UPDATES = os.getenv("DROP_PENDING_UPDATES", "true").strip().lower() in (
+    "1", "true", "yes", "on",
+)
+
+# ---------------------------------------------------------------------------
 # Distribusi dokumen
 # ---------------------------------------------------------------------------
 

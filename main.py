@@ -30,7 +30,7 @@ from telegram.ext import (
     MessageHandler,
 )
 
-from config import TELEGRAM_BOT_TOKEN
+from config import TELEGRAM_BOT_TOKEN, DROP_PENDING_UPDATES, STATE_PERSISTENCE_ENABLED
 from bot.handlers import (
     start_command,
     help_command,
@@ -40,7 +40,12 @@ from bot.handlers import (
     handle_unknown_command,
     handle_idle_text,
 )
-from bot.states import ConversationState, get_conversation_context
+from bot.states import (
+    ConversationState,
+    get_conversation_context,
+    persist_conversation_context,
+    set_state_store,
+)
 from bot.guides import GUIDE_CONFIRM
 
 
@@ -117,6 +122,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if ctx.state == ConversationState.IDLE:
         # Teks acak di luar pengajuan -> tunjukkan cara memakai bot
         await handle_idle_text(update, context)
+        await _persist_state(user_id)
         return
 
     if ctx.state in (ConversationState.CONFIRM_REQUEST,
@@ -126,9 +132,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             GUIDE_CONFIRM,
             parse_mode="Markdown",
         )
+        await _persist_state(user_id)
         return
 
     if ctx.state not in conversation_input_states:
+        await _persist_state(user_id)
         return
 
     if ctx.state in [
@@ -142,6 +150,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await handle_overday_input(update, context)
     else:
         await handle_new_request_input(update, context)
+
+    await _persist_state(user_id)
+
+
+async def _persist_state(user_id: int):
+    """Simpan state percakapan ke backend persistensi (kalau aktif)."""
+    try:
+        persist_conversation_context(user_id)
+    except Exception as error:
+        log_event("ERR", f"Gagal simpan state user {user_id}: {error}")
 
 
 async def main_async():
@@ -162,6 +180,21 @@ async def main_async():
 
     log_event("SYS", "Bot starting...")
     log_event("SYS", f"Log dir: {os.path.abspath(LOG_DIR)}")
+
+    # Persistensi state: simpan form yang sedang diisi ke Google Sheets
+    # supaya tidak hilang saat proses restart (runner GitHub Actions,
+    # container cloud). Kalau gagal, bot tetap jalan normal.
+    if STATE_PERSISTENCE_ENABLED:
+        try:
+            from services.state_store import StateStore
+            set_state_store(StateStore())
+            log_event("SYS", "State persistence aktif (Google Sheets)")
+            print("State persistence: AKTIF")
+        except Exception as error:
+            log_event("ERR", f"Gagal aktifkan state persistence: {error}")
+            print(f"State persistence: GAGAL ({error}) - bot jalan tanpanya")
+    else:
+        print("State persistence: nonaktif (state in-memory)")
 
     print(f"\nLogging to: {os.path.abspath(LOG_DIR)}/")
     print("\nBot akan membuat file log:")
@@ -188,7 +221,9 @@ async def main_async():
     await app.initialize()
     await app.start()
     try:
-        await app.updater.start_polling(drop_pending_updates=True)
+        await app.updater.start_polling(
+            drop_pending_updates=DROP_PENDING_UPDATES
+        )
     except Conflict:
         # Telegram hanya mengizinkan satu poller untuk satu token. Kalau
         # error ini muncul, bot ini sudah jalan di tempat lain (misal

@@ -1,0 +1,94 @@
+name: Bot Telegram (long polling)
+
+# Bot ini jalan sebagai scheduled workflow, bukan sebagai server.
+#
+# Cara kerjanya:
+#   - Workflow dijadwalkan tiap 5 menit
+#   - Tiap run hidup sampai 6 jam (batas GitHub Actions), lalu digantikan
+#     run berikutnya
+#   - Telegram menahan pesan yang belum diproses di sisi server, jadi
+#     pesan user tetap sampai meski ada jeda singkat antar-run
+#
+# Syarat: repo harus PUBLIC. Repo private kena kuota 2.000 menit/bulan.
+#
+# Setup sekali:
+#   1. Settings -> Secrets and variables -> Actions -> New repository secret
+#      TELEGRAM_BOT_TOKEN, GOOGLE_SERVICE_ACCOUNT_JSON
+#      (isi penuh credentials.json dalam satu baris - berisi private key)
+#   2. Settings -> Secrets and variables -> Actions -> New repository variable
+#      GOOGLE_SHEET_ID, GOOGLE_DRIVE_FOLDER_ID, COMPANY_NAME,
+#      APPROVER_1_USER_ID, ... , HR_USER_ID
+#
+# Catatan: hanya boleh ada SATU instance polling per token. Kalau bot juga
+# jalan di PC/Railway, salah satunya akan berhenti dengan pesan konflik.
+
+on:
+  schedule:
+    # Setiap 5 menit. Format cron: menit jam hari bulan hari-dalam-minggu.
+    - cron: '*/5 * * * *'
+  workflow_dispatch: # bisa juga dijalankan manual dari tab Actions
+
+# Cegah dua run bertumpuk (duplikat polling dengan token sama).
+concurrency:
+  group: ot-bot-polling
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    # Batas durasi satu run = 6 jam (batas GitHub Actions).
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Siapkan kredensial Google
+        env:
+          # Berisi private key -> disimpan sebagai secret, bukan variable.
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          mkdir -p credentials
+          echo "$GOOGLE_SERVICE_ACCOUNT_JSON" > credentials/service_account.json
+          echo "credentials/service_account.json" >> .gitignore
+
+      - name: Jalankan bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: credentials/service_account.json
+          GOOGLE_SHEET_ID: ${{ vars.GOOGLE_SHEET_ID }}
+          GOOGLE_DRIVE_FOLDER_ID: ${{ vars.GOOGLE_DRIVE_FOLDER_ID }}
+          COMPANY_NAME: ${{ vars.COMPANY_NAME }}
+          APPROVER_1_USER_ID: ${{ vars.APPROVER_1_USER_ID }}
+          APPROVER_1_NAME: ${{ vars.APPROVER_1_NAME }}
+          APPROVER_1_TITLE: ${{ vars.APPROVER_1_TITLE }}
+          APPROVER_1_ESIGN_BASE64: ${{ vars.APPROVER_1_ESIGN_BASE64 }}
+          APPROVER_2_USER_ID: ${{ vars.APPROVER_2_USER_ID }}
+          APPROVER_2_NAME: ${{ vars.APPROVER_2_NAME }}
+          APPROVER_2_TITLE: ${{ vars.APPROVER_2_TITLE }}
+          APPROVER_2_ESIGN_BASE64: ${{ vars.APPROVER_2_ESIGN_BASE64 }}
+          APPROVER_3_USER_ID: ${{ vars.APPROVER_3_USER_ID }}
+          APPROVER_3_NAME: ${{ vars.APPROVER_3_NAME }}
+          APPROVER_3_TITLE: ${{ vars.APPROVER_3_TITLE }}
+          APPROVER_3_ESIGN_BASE64: ${{ vars.APPROVER_3_ESIGN_BASE64 }}
+          HR_USER_ID: ${{ vars.HR_USER_ID }}
+          # Mode cloud: PDF hanya dikirim ke Telegram, tidak diarsipkan di disk
+          SAVE_PDF_LOCALLY: 'false'
+          DRIVE_UPLOAD_ENABLED: 'false'
+          # State form disimpan ke Google Sheets supaya tidak hilang saat restart
+          STATE_PERSISTENCE_ENABLED: 'true'
+          DROP_PENDING_UPDATES: 'false'
+        run: python main.py

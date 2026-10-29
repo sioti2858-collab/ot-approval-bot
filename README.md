@@ -134,6 +134,10 @@ Semua konfigurasi ada di `.env` (lihat `.env.example` untuk daftar lengkap).
 | `EXTRA_DOCUMENT_RECIPIENT_USER_IDS` | kosong | Penerima tambahan dokumen |
 | `ALLOW_APPROVER_SELF_APPROVAL` | `true` | Approver boleh approve pengajuannya sendiri |
 | `ALLOW_SELF_APPROVAL` | `false` | Semua orang boleh approve sendiri (hanya uji coba) |
+| `STATE_PERSISTENCE_ENABLED` | `false` | Simpan state form ke Google Sheets (wajib untuk bot di cloud) |
+| `STATE_TAB_NAME` | `bot_state` | Nama tab Sheet untuk state |
+| `STATE_TTL_HOURS` | `24` | Lama state dianggap masih valid |
+| `DROP_PENDING_UPDATES` | `true` | Buang update belum diproses saat start (set `false` kalau sering restart) |
 
 ---
 
@@ -203,6 +207,7 @@ python tools/test_guides.py         # panduan perintah
 python tools/test_idempotency.py    # anti double-tap & batas tanggal
 python tools/test_overday_flow.py   # alur overday
 python tools/test_document_storage.py  # mode arsip lokal / Telegram / Drive
+python tools/test_state_persistence.py  # persistensi state form antar restart
 python tools/test_flow.py           # alur overtime + pesan error
 ```
 
@@ -216,11 +221,53 @@ python tools/test_flow.py           # alur overtime + pesan error
 | **Oracle Cloud Always Free** | ✅ | VM 1 core / 1 GB, 24/7, beneran 0 rupiah (signupnya sering ditolak, tapi coba) |
 | **Railway** | ⚠️ | Trial $5 / 30 hari tanpa kartu. Setelah itu paket Free hanya menyediakan kredit $1/bulan — bot 24/7 di 512MB biasanya ~$2–5/bulan, jadi perlu kartu + paket Hobby ($5/bln, kredit $5 → net ~0) |
 | **Render / Koyeb** | ❌ untuk bot | Free tier tidur setelah 15 menit idle → long-polling putus |
-| **GitHub Actions** | ❌ untuk bot | Runner-nya ephemeral, maks 6 jam/run, kuota 2000 menit/bulan |
+| **GitHub Actions** | ✅ | Scheduled workflow, repo **harus public**. Batas 6 jam/run, dijadwal ulang tiap 5 menit |
 
-> **Rekomendasi:** kalau benar-benar mau 0 rupiah, jalankan di PC yang nyala 24 jam
-> (atau Raspberry Pi). Kalau mau jalan di cloud dan siap pakai kartu, **Railway** paling
-> gampang — repo ini sudah punya `Dockerfile` + `railway.json` yang siap pakai.
+> **Rekomendasi:** kalau benar-benar mau 0 rupiah **dan** mau jalan di cloud
+> (bukan PC nyala 24 jam), pakai **GitHub Actions** — repo ini sudah punya
+> `.github/workflows/bot.yml` yang siap pakai, tanpa Railway, tanpa Docker.
+> Kalau lebih suka kontrol penuh dan siap pakai kartu, **Railway** paling
+> gampang (repo ini sudah punya `Dockerfile` + `railway.json`).
+
+### Deploy gratis via GitHub Actions ⭐ (tanpa Railway)
+
+Repo ini punya workflow `.github/workflows/bot.yml` yang menjalankan bot sebagai
+*scheduled workflow*, bukan server. Repo **wajib public** — repo private kena
+kuota 2.000 menit/bulan dan workflow-nya langsung ditolak.
+
+Cara kerjanya:
+
+- Workflow dijadwalkan tiap **5 menit**
+- Tiap run hidup sampai **6 jam** (batas GitHub Actions), lalu digantikan run berikutnya
+- Telegram menahan pesan yang belum diproses di sisi server, jadi pesan user tetap
+  sampai meski ada jeda singkat antar-run
+
+**Setup sekali:**
+
+1. Push repo ini ke GitHub, lalu pastikan repo-nya **Public**
+   (Settings → General → Danger Zone → Change repository visibility)
+2. **Settings → Secrets and variables → Actions → New repository secret**
+   - `TELEGRAM_BOT_TOKEN`
+   - `GOOGLE_SERVICE_ACCOUNT_JSON` → isi **penuh** isi file `credentials.json`
+     dalam satu baris (berisi private key, jadi harus secret, bukan variable)
+3. **Settings → Secrets and variables → Actions → New repository variable**
+   - `GOOGLE_SHEET_ID`
+   - `COMPANY_NAME`
+   - `APPROVER_1_USER_ID` / `APPROVER_1_NAME` / `APPROVER_1_TITLE` (sama untuk `_2`, `_3`)
+   - `HR_USER_ID`
+   - `APPROVER_*_ESIGN_BASE64` → isi file PNG tanda tangan dalam base64
+     (`certutil -encode tanda_tangan_1.png tanda_tangan_1.b64` di Windows)
+4. Tab **Actions → Bot Telegram (long polling) → Run workflow** untuk cek
+   sekali jalan manual. Log harus menunjukkan `BOT STARTED SUCCESSFULLY!`
+
+> ⚠️ **Hanya boleh ada SATU instance polling per token Telegram.** Kalau bot juga
+> jalan di PC/Railway, salah satunya akan gagal dengan pesan *"BOT GAGAL
+> START - KONFLIK"*. Stop yang lokal dulu (atau vice versa).
+>
+> ⚠️ Workflow ini **menyalakan** `STATE_PERSISTENCE_ENABLED=true` (state form
+> disimpan ke tab Google Sheets) dan `DROP_PENDING_UPDATES=false`, karena
+> prosesnya sering restart. Tanpa itu, user yang sedang mengisi form
+> kehilangan tempatnya setiap run berganti.
 
 ### Deploy ke Railway
 
