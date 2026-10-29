@@ -85,6 +85,8 @@ jobs:
           APPROVER_3_TITLE: ${{ vars.APPROVER_3_TITLE }}
           APPROVER_3_ESIGN_BASE64: ${{ vars.APPROVER_3_ESIGN_BASE64 }}
           HR_USER_ID: ${{ vars.HR_USER_ID }}
+          # Logo asli company (PNG dalam base64) - file PNG tidak boleh masuk repo
+          LOGO_BASE64: ${{ vars.LOGO_BASE64 }}
           # Mode cloud: PDF hanya dikirim ke Telegram, tidak diarsipkan di disk
           SAVE_PDF_LOCALLY: 'false'
           DRIVE_UPLOAD_ENABLED: 'false'

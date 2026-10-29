@@ -257,6 +257,8 @@ Cara kerjanya:
    - `HR_USER_ID`
    - `APPROVER_*_ESIGN_BASE64` → isi file PNG tanda tangan dalam base64
      (`certutil -encode tanda_tangan_1.png tanda_tangan_1.b64` di Windows)
+   - `LOGO_BASE64` → isi file logo company dalam base64
+     (`certutil -encode logo.png logo.b64` di Windows)
 4. Tab **Actions → Bot Telegram (long polling) → Run workflow** untuk cek
    sekali jalan manual. Log harus menunjukkan `BOT STARTED SUCCESSFULLY!`
 
