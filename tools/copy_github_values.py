@@ -137,6 +137,11 @@ def collect(env):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--copy", action="store_true", help="Mulai menyalin ke clipboard")
+    parser.add_argument(
+        "--only",
+        default="",
+        help="Hanya nama nilai yang mau disalin, dipisah koma (mis. APPROVER_1_NAME,HR_USER_ID)",
+    )
     args = parser.parse_args()
 
     if hasattr(sys.stdout, "reconfigure"):
@@ -144,6 +149,11 @@ def main():
 
     env = parse_env(PROJECT_ROOT / ".env")
     items = collect(env)
+
+    if args.only:
+        wanted = [n.strip() for n in args.only.split(",") if n.strip()]
+        items = [i for i in items if i[0] in wanted]
+        print(f"Disaring ke: {', '.join(wanted)}\n")
 
     print("Daftar nilai yang perlu dipasang di GitHub:")
     print(f"  {SECRETS_URL}")
