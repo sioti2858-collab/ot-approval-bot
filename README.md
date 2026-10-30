@@ -280,6 +280,13 @@ Cara kerjanya:
 > Hasilnya (di `local_assets/optimized/`, sudah di-`.gitignore`) muat di bawah
 > batas GitHub. Base64-nya bisa disalin dari file `.b64` yang dibuat.
 
+> 💡 **Cara cepat mengisi secret & variable:** jalankan
+> ```bash
+> python tools/copy_github_values.py --copy
+> ```
+> Skripnya menyalin tiap nilai ke clipboard satu per satu (nilai tidak
+> pernah tampil di layar) — tinggal paste ke halaman pengaturan GitHub.
+
 ### Deploy ke Railway
 
 Repo ini sudah berisi `Dockerfile` dan `railway.json`, jadi tidak perlu konfigurasi build manual.
