@@ -271,6 +271,15 @@ Cara kerjanya:
 > prosesnya sering restart. Tanpa itu, user yang sedang mengisi form
 > kehilangan tempatnya setiap run berganti.
 
+> ⚠️ **Batas 48 KB.** GitHub hanya menerima nilai secret/variable maksimal
+> 48 KB. PNG asli disimpan sebagai base64 (file x 1,37), jadi PNG harus di
+> bawah ~34 KB. File asli di `local_assets/` bisa lebih besar — jalankan
+> ```bash
+> python tools/optimize_assets.py --copy
+> ```
+> Hasilnya (di `local_assets/optimized/`, sudah di-`.gitignore`) muat di bawah
+> batas GitHub. Base64-nya bisa disalin dari file `.b64` yang dibuat.
+
 ### Deploy ke Railway
 
 Repo ini sudah berisi `Dockerfile` dan `railway.json`, jadi tidak perlu konfigurasi build manual.
