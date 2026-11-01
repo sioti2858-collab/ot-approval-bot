@@ -1,0 +1,54 @@
+name: Keep-alive repo
+
+# GitHub otomatis MENONAKTIFKAN scheduled workflow bila repo tidak punya
+# aktivitas selama 60 hari. Efeknya: bot Telegram ikut mati diam-diam dan
+# tidak ada yang memberi tahu.
+#
+# Workflow ini membuat satu commit kosong secara berkala supaya repo tetap
+# "aktif". Commitnya sengaja dibatasi (hanya kalau repo sudah lama idle),
+# supaya riwayat repo tetap rapi.
+#
+# Commit memakai GITHUB_TOKEN bawaan repo, jadi tidak perlu secret tambahan.
+# Catatan: event yang dipicu GITHUB_TOKEN tidak menjalankan workflow lain,
+# jadi workflow ini tidak akan menyebabkan loop.
+
+on:
+  schedule:
+    # Setiap hari pukul 02:17 UTC. Menit 17 dipilih supaya tidak berebut
+    # dengan jadwal cron lain yang memakai menit yang sama.
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # butuh riwayat commit untuk cek tanggal commit terakhir
+
+      - name: Commit ringan kalau repo sudah lama tidak ada aktivitas
+        run: |
+          set -euo pipefail
+
+          LAST=$(git log -1 --format=%ct)
+          NOW=$(date +%s)
+          DAYS=$(( (NOW - LAST) / 86400 ))
+          echo "Commit terakhir: ${DAYS} hari lalu"
+
+          if [ "$DAYS" -lt 3 ]; then
+            echo "Repo masih aktif (${DAYS} hari). Tidak perlu commit baru."
+            exit 0
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --allow-empty -m "chore: keep-alive repo (mencegah scheduled workflow dinonaktifkan GitHub)"
+          git push
+
+          echo "Commit keep-alive berhasil dikirim."

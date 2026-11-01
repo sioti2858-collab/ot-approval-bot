@@ -1,0 +1,153 @@
+name: Watchdog bot
+
+# Memeriksa apakah bot Telegram masih hidup.
+#
+# Kenapa perlu: GitHub Actions bukan hosting server 24/7. Scheduled run bisa
+# tertunda, dilewati, atau gagal start karena kesalahan kode. Kalau tidak
+# ada yang memantau, bot bisa mati berjam-jam tanpa Anda sadari.
+#
+# Cara kerja:
+#   1. Cek workflow "bot.yml": adakah run yang aktif dalam 90 menit terakhir?
+#   2. Kalau iya -> bot hidup, tidak ada aksi.
+#   3. Kalau tidak -> hitung consecutively-miss. Baru setelah 3 pemeriksaan
+#      berturut-turut gagal (sekitar 15 menit) bot dianggap mati, supaya
+#      jeda jadwal normal tidak memicu peringatan palsu.
+#   4. Kalau memang mati: coba trigger ulang bot, lalu kirim pesan
+#      peringatan ke Telegram.
+#
+# Auto-trigger butuh secret GH_WATCHDOG_TOKEN (PAT dengan scope
+# actions:write). Kalau secret itu belum diisi, peringatan Telegram tetap
+# dikirim, tetapi bot tidak direstart otomatis.
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Ambil state pemeriksaan sebelumnya
+        id: restore
+        uses: actions/cache/restore@v4
+        with:
+          key: watchdog-misses-${{ github.run_id }}
+          restore-keys: watchdog-misses-
+          path: watchdog-state.txt
+
+      - name: Cek apakah bot masih hidup
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Hitung jumlah miss berturut-turut dari cache sebelumnya.
+          MISSES=0
+          if [ -f watchdog-state.txt ]; then
+            MISSES=$(grep -o '"misses": *[0-9]*' watchdog-state.txt | grep -o '[0-9]*' || echo 0)
+          fi
+          echo "miss sebelumnya: ${MISSES}"
+
+          # Cek run terakhir workflow bot.yml.
+          RUNS=$(curl -s -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${REPO}/actions/workflows/bot.yml/runs?per_page=10")
+
+          NOW=$(date +%s)
+          LATEST=$(echo "$RUNS" | python -c "
+          import json,sys,datetime
+          try:
+              runs = json.load(sys.stdin).get('workflow_runs', [])
+          except Exception:
+              runs = []
+          newest = None
+          for r in runs:
+              started = r.get('run_started_at') or r.get('created_at')
+              if not started:
+                  continue
+              ts = datetime.datetime.fromisoformat(started.replace('Z','+00:00')).timestamp()
+              if newest is None or ts > newest[0]:
+                  newest = (ts, r.get('status'), r.get('id'))
+          if newest:
+              print(int(newest[0]), newest[1], newest[2])
+          ")
+
+          if [ -z "$LATEST" ]; then
+            echo "Tidak ada run sama sekali - anggap bot mati."
+            ALIVE=false; MISSES=$((MISSES + 1)); LAST=""
+          else
+            TS=$(echo "$LATEST" | cut -d' ' -f1)
+            LAST_STATUS=$(echo "$LATEST" | cut -d' ' -f2)
+            LAST_ID=$(echo "$LATEST" | cut -d' ' -f3)
+            AGE=$(( (NOW - TS) / 60 ))
+            echo "Run terakhir: id=${LAST_ID} status=${LAST_STATUS} umur=${AGE} menit"
+            if [ "$AGE" -lt 90 ]; then
+              ALIVE=true; MISSES=0
+            else
+              ALIVE=false; MISSES=$((MISSES + 1))
+            fi
+          fi
+
+          echo "{\"misses\": ${MISSES}, \"alive\": \"${ALIVE}\", \"checked_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > watchdog-state.txt
+          cat watchdog-state.txt
+
+          echo "alive=${ALIVE}" >> "$GITHUB_OUTPUT"
+          echo "misses=${MISSES}" >> "$GITHUB_OUTPUT"
+          if [ "$MISSES" -ge 3 ]; then
+            echo "need_action=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "need_action=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Simpan state pemeriksaan
+        if: always() && hashFiles('watchdog-state.txt') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: watchdog-state.txt
+          key: watchdog-misses-${{ github.run_id }}
+
+      - name: Restart bot dan kirim peringatan ke Telegram
+        if: steps.check.outputs.need_action == 'true'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          HR_USER_ID: ${{ vars.HR_USER_ID }}
+          WATCHDOG_TOKEN: ${{ secrets.GH_WATCHDOG_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          MISSES: ${{ steps.check.outputs.misses }}
+        run: |
+          set -uo pipefail
+
+          # 1) Coba restart bot (butuh PAT dengan scope actions:write).
+          if [ -n "${WATCHDOG_TOKEN}" ]; then
+            CODE=$(curl -s -o /tmp/dispatch.json -w '%{http_code}' -X POST \
+              -H "Authorization: Bearer ${WATCHDOG_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "Content-Type: application/json" \
+              "https://api.github.com/repos/${REPO}/actions/workflows/bot.yml/dispatches" \
+              -d '{"ref":"main"}')
+            echo "Percobaan restart bot: HTTP ${CODE}"
+          else
+            CODE="skip"
+            echo "GH_WATCHDOG_TOKEN belum diisi - restart otomatis dilewati (peringatan tetap dikirim)."
+          fi
+
+          # 2) Kirim peringatan ke Telegram.
+          if [ -n "${TELEGRAM_BOT_TOKEN}" ] && [ -n "${HR_USER_ID}" ]; then
+            TEXT=$'🚨 <b>Watchdog: bot OT tidak aktif</b>\n\nTidak ada run bot yang aktif dalam 90 menit terakhir (${MISSES} pemeriksaan berturut-turut gagal).\n\nRestart otomatis: HTTP ${CODE}\n\nCek: https://github.com/${REPO}/actions/workflows/bot.yml'
+            curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              -d chat_id="${HR_USER_ID}" \
+              -d parse_mode=HTML \
+              --data-urlencode "text=${TEXT}" | head -c 300
+            echo
+          else
+            echo "TELEGRAM_BOT_TOKEN atau HR_USER_ID kosong - peringatan tidak dikirim."
+          fi

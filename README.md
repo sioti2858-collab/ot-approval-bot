@@ -287,6 +287,28 @@ Cara kerjanya:
 > Skripnya menyalin tiap nilai ke clipboard satu per satu (nilai tidak
 > pernah tampil di layar) — tinggal paste ke halaman pengaturan GitHub.
 
+#### Watchdog & keep-alive (supaya bisa ditinggal berbulan-bulan)
+
+Dua workflow tambahan menjaga bot tetap hidup tanpa perlu diawasi:
+
+| Workflow | Jadwal | Fungsi |
+|---|---|---|
+| `watchdog.yml` | tiap 5 menit | Cek apakah ada run bot yang aktif. Kalau **tidak ada run dalam 90 menit**, dihitung sebagai miss. Setelah **3 miss berturut-turut** (~15 menit), bot dianggap mati: workflow mencoba memicu ulang bot lalu mengirim **peringatan ke Telegram** (ke `HR_USER_ID`). |
+| `keepalive.yml` | tiap hari 02:17 UTC | GitHub mematikan scheduled workflow bila repo **tidak ada aktivitas 60 hari**. Workflow ini membuat satu commit kosong (hanya kalau repo sudah ≥3 hari idle) supaya bot tidak dimatikan diam-diam. |
+
+Secret tambahan (opsional, hanya untuk auto-restart):
+
+- `GH_WATCHDOG_TOKEN` → PAT dengan scope `actions:write`. **Kalau secret ini
+  diisi**, watchdog otomatis me-restart bot yang mati. Kalau tidak diisi,
+  peringatan Telegram **tetap** dikirim, tetapi restart dilakukan manual.
+
+> ⚠️ Jeda jadwal normal antar-run bisa sampai ~40 menit, jadi ambang
+> "mati" sengaja diatur ke 90 menit + 3 miss supaya peringatan palsu tidak
+> sering muncul.
+
+> ⚠️ Kalau repo diubah jadi **private**, kuota 2.000 menit/bulan akan habis
+> (bot + watchdog butuh ~30.000 menit/bulan). Repo harus **public**.
+
 ### Deploy ke Railway
 
 Repo ini sudah berisi `Dockerfile` dan `railway.json`, jadi tidak perlu konfigurasi build manual.
