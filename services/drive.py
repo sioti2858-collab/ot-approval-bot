@@ -10,7 +10,8 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from typing import Optional
 
-from config import GOOGLE_SERVICE_ACCOUNT_JSON, GOOGLE_DRIVE_FOLDER_ID, DRIVE_SHARE_MODE
+from config import GOOGLE_DRIVE_FOLDER_ID, DRIVE_SHARE_MODE
+from services.google_creds import get_credentials
 
 
 class DriveService:
@@ -24,17 +25,7 @@ class DriveService:
     def _get_service(self):
         """Initialize Google Drive service"""
         if self._service is None:
-            # Parse service account JSON
-            if GOOGLE_SERVICE_ACCOUNT_JSON.endswith(".json"):
-                # File path
-                creds = Credentials.from_service_account_file(
-                    GOOGLE_SERVICE_ACCOUNT_JSON, scopes=self.SCOPES
-                )
-            else:
-                # JSON content
-                creds = Credentials.from_service_account_info(
-                    json.loads(GOOGLE_SERVICE_ACCOUNT_JSON), scopes=self.SCOPES
-                )
+            creds = get_credentials(self.SCOPES)
             self._service = build("drive", "v3", credentials=creds)
         return self._service
 

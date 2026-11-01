@@ -178,6 +178,23 @@ async def main_async():
         print("=" * 50 + "\n")
         raise SystemExit(1)
 
+    # Cek kredensial Google bisa dibaca. Tanpa cek ini, secret yang kosong
+    # atau rusak baru ketahuan saat user menekan tombol - gejalanya bot
+    # "macet" tanpa pesan. Lebih baik gagal saat start dengan jelas.
+    try:
+        from services.google_creds import validate_credentials
+
+        validate_credentials()
+        print("Kredensial Google: OK")
+    except Exception as error:
+        print("\n" + "=" * 50)
+        print("  BOT GAGAL START - KREDENSIAL GOOGLE TIDAK SAH")
+        print("=" * 50)
+        print(f"  {error}")
+        print("=" * 50 + "\n")
+        log_event("ERR", f"Kredensial Google tidak valid: {error}")
+        raise SystemExit(1)
+
     log_event("SYS", "Bot starting...")
     log_event("SYS", f"Log dir: {os.path.abspath(LOG_DIR)}")
 

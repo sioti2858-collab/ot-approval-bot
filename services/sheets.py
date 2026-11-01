@@ -11,7 +11,8 @@ from google.oauth2.service_account import Credentials
 from typing import Optional, List, Dict
 from datetime import datetime
 
-from config import GOOGLE_SERVICE_ACCOUNT_JSON, GOOGLE_SHEET_ID
+from config import GOOGLE_SHEET_ID
+from services.google_creds import get_credentials
 from models.ot_request import OTRequest, RequestStatus, ApprovalStatus
 
 logger = logging.getLogger("OTBot")
@@ -53,17 +54,7 @@ class SheetsService:
     def _get_client(self):
         """Initialize Google Sheets client"""
         if self._client is None:
-            # Parse service account JSON
-            if GOOGLE_SERVICE_ACCOUNT_JSON.endswith(".json"):
-                # File path
-                creds = Credentials.from_service_account_file(
-                    GOOGLE_SERVICE_ACCOUNT_JSON, scopes=self.SCOPES
-                )
-            else:
-                # JSON content
-                creds = Credentials.from_service_account_info(
-                    json.loads(GOOGLE_SERVICE_ACCOUNT_JSON), scopes=self.SCOPES
-                )
+            creds = get_credentials(self.SCOPES)
             self._client = gspread.authorize(creds)
         return self._client
 

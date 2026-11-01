@@ -969,8 +969,22 @@ async def handle_confirmation(query, user_id, data):
         )
 
         # Save to Google Sheets
-        sheets = get_sheets_service()
-        row_id = sheets.add_request(request)
+        # Kalau gagal (mis. kredensial Google bermasalah), user harus
+        # diberi tahu - bukan diam saja tombolnya tidak merespons.
+        try:
+            sheets = get_sheets_service()
+            row_id = sheets.add_request(request)
+        except Exception as error:
+            logger.error(f"Gagal menyimpan pengajuan: {error}", exc_info=True)
+            await query.edit_message_text(
+                "❌ *Pengajuan Gagal Disimpan*\n\n"
+                "Ada masalah teknis saat menyimpan pengajuan ke server.\n"
+                "Data Anda aman. Silakan coba lagi beberapa saat lagi, "
+                "atau hubungi admin bila tetap gagal.",
+                parse_mode="Markdown",
+                reply_markup=get_back_to_menu_keyboard(),
+            )
+            return
         request.row_id = row_id
 
         # Clear conversation
@@ -1046,8 +1060,22 @@ async def handle_confirmation(query, user_id, data):
         )
 
         # Save to Google Sheets
-        sheets = get_sheets_service()
-        row_id = sheets.add_request(request)
+        # Kalau gagal (mis. kredensial Google bermasalah), user harus
+        # diberi tahu - bukan diam saja tombolnya tidak merespons.
+        try:
+            sheets = get_sheets_service()
+            row_id = sheets.add_request(request)
+        except Exception as error:
+            logger.error(f"Gagal menyimpan pengajuan: {error}", exc_info=True)
+            await query.edit_message_text(
+                "❌ *Pengajuan Gagal Disimpan*\n\n"
+                "Ada masalah teknis saat menyimpan pengajuan ke server.\n"
+                "Data Anda aman. Silakan coba lagi beberapa saat lagi, "
+                "atau hubungi admin bila tetap gagal.",
+                parse_mode="Markdown",
+                reply_markup=get_back_to_menu_keyboard(),
+            )
+            return
         request.row_id = row_id
 
         # Clear conversation

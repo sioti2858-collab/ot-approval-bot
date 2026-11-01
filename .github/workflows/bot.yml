@@ -62,7 +62,33 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
         run: |
           mkdir -p credentials
-          echo "$GOOGLE_SERVICE_ACCOUNT_JSON" > credentials/service_account.json
+          # Tulis + validasi. Kalau secret kosong atau rusak, run HARUS gagal
+          # di sini - jangan sampai bot jalan lalu macet setiap kali user
+          # menekan tombol.
+          python - <<'PY'
+          import json, os, sys
+
+          raw = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+          raw = raw.lstrip("\ufeff").strip()
+
+          if not raw:
+              print("::error::Secret GOOGLE_SERVICE_ACCOUNT_JSON kosong. Isi di Settings > Secrets and variables > Actions.")
+              sys.exit(1)
+
+          try:
+              info = json.loads(raw)
+          except json.JSONDecodeError as error:
+              print(f"::error::Isi secret bukan JSON valid: {error}")
+              sys.exit(1)
+
+          if "client_email" not in info:
+              print("::error::JSON secret tidak punya field 'client_email'.")
+              sys.exit(1)
+
+          with open("credentials/service_account.json", "w", encoding="utf-8") as handle:
+              handle.write(raw)
+          print("Kredensial Google valid.")
+          PY
           echo "credentials/service_account.json" >> .gitignore
 
       - name: Jalankan bot

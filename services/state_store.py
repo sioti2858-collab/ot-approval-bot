@@ -25,14 +25,13 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 import gspread
-from google.oauth2.service_account import Credentials
 
 from config import (
-    GOOGLE_SERVICE_ACCOUNT_JSON,
     GOOGLE_SHEET_ID,
     STATE_TAB_NAME,
     STATE_TTL_HOURS,
 )
+from services.google_creds import get_credentials
 
 logger = logging.getLogger("OTBot")
 
@@ -69,14 +68,7 @@ class StateStore:
         if self._sheet is not None:
             return self._sheet
 
-        if GOOGLE_SERVICE_ACCOUNT_JSON.endswith(".json"):
-            creds = Credentials.from_service_account_file(
-                GOOGLE_SERVICE_ACCOUNT_JSON, scopes=self.SCOPES
-            )
-        else:
-            creds = Credentials.from_service_account_info(
-                json.loads(GOOGLE_SERVICE_ACCOUNT_JSON), scopes=self.SCOPES
-            )
+        creds = get_credentials(self.SCOPES)
 
         self._client = gspread.authorize(creds)
         spreadsheet = self._client.open_by_key(GOOGLE_SHEET_ID)
