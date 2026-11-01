@@ -4,8 +4,7 @@ name: Bot Telegram (long polling)
 #
 # Cara kerjanya:
 #   - Workflow dijadwalkan tiap 5 menit
-#   - Tiap run hidup sampai 6 jam (batas GitHub Actions), lalu digantikan
-#     run berikutnya
+#   - Tiap run hidup ~50 menit, lalu digantikan run berikutnya
 #   - Telegram menahan pesan yang belum diproses di sisi server, jadi
 #     pesan user tetap sampai meski ada jeda singkat antar-run
 #
@@ -39,8 +38,10 @@ permissions:
 jobs:
   bot:
     runs-on: ubuntu-latest
-    # Batas durasi satu run = 6 jam (batas GitHub Actions).
-    timeout-minutes: 360
+    # Batas durasi satu run. Sengaja jauh di bawah batas GitHub Actions
+    # (6 jam): supaya run selesai sendiri dan run berikutnya - dengan kode
+    # terbaru - langsung mengambil alih. Tidak perlu cancel manual.
+    timeout-minutes: 50
 
     steps:
       - name: Checkout

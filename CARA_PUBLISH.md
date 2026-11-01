@@ -15,7 +15,7 @@ Kalau Anda clone ulang dari nol, ikuti saja **[README.md](README.md)** bagian
 | Deskripsi & topics | ✅ terpasang |
 | Branch | `main` |
 | CI (GitHub Actions) | ✅ hijau — <https://github.com/sioti2858-collab/ot-approval-bot/actions> |
-| Workflow bot | ✅ `.github/workflows/bot.yml` — scheduled tiap 5 menit, jalan 6 jam/run |
+| Workflow bot | ✅ `.github/workflows/bot.yml` — scheduled tiap 5 menit, jalan ~50 menit/run |
 | Persistensi state | ✅ `services/state_store.py` — state form disimpan ke tab Google Sheets |
 | Deploy cloud | ✅ Railway (`Dockerfile` + `railway.json`) **atau** GitHub Actions gratis (repo public) |
 | Data pribadi | ✅ nol (scan 48 entri file di repo: aman) |

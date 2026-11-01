@@ -221,7 +221,7 @@ python tools/test_flow.py           # alur overtime + pesan error
 | **Oracle Cloud Always Free** | ✅ | VM 1 core / 1 GB, 24/7, beneran 0 rupiah (signupnya sering ditolak, tapi coba) |
 | **Railway** | ⚠️ | Trial $5 / 30 hari tanpa kartu. Setelah itu paket Free hanya menyediakan kredit $1/bulan — bot 24/7 di 512MB biasanya ~$2–5/bulan, jadi perlu kartu + paket Hobby ($5/bln, kredit $5 → net ~0) |
 | **Render / Koyeb** | ❌ untuk bot | Free tier tidur setelah 15 menit idle → long-polling putus |
-| **GitHub Actions** | ✅ | Scheduled workflow, repo **harus public**. Batas 6 jam/run, dijadwal ulang tiap 5 menit |
+| **GitHub Actions** | ✅ | Scheduled workflow, repo **harus public**. Tiap run ~50 menit, dijadwal ulang tiap 5 menit |
 
 > **Rekomendasi:** kalau benar-benar mau 0 rupiah **dan** mau jalan di cloud
 > (bukan PC nyala 24 jam), pakai **GitHub Actions** — repo ini sudah punya
@@ -238,7 +238,7 @@ kuota 2.000 menit/bulan dan workflow-nya langsung ditolak.
 Cara kerjanya:
 
 - Workflow dijadwalkan tiap **5 menit**
-- Tiap run hidup sampai **6 jam** (batas GitHub Actions), lalu digantikan run berikutnya
+- Tiap run hidup sampai **~50 menit**, lalu digantikan run berikutnya (yang memakai kode terbaru)
 - Telegram menahan pesan yang belum diproses di sisi server, jadi pesan user tetap
   sampai meski ada jeda singkat antar-run
 
