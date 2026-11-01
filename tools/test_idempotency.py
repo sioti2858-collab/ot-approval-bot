@@ -15,6 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from bot.handlers import (  # noqa: E402
+    TZ,
     check_approval_still_valid,
     is_duplicate_action,
     validate_date_range,
@@ -108,7 +109,11 @@ def test_date_range():
 
     assert MAX_PAST_DAYS == 14, MAX_PAST_DAYS
 
-    today = datetime.now().date()
+    # PENTING: pakai timezone aplikasi (Asia/Jakarta), sama seperti
+    # validate_date_range(). Kalau pakai datetime.now() (jam sistem/UTC),
+    # test ini gagal acak antara pukul 17:00-24:00 UTC karena tanggal di
+    # server beda sehari dengan tanggal yang dipakai kode.
+    today = datetime.now(TZ).date()
     ok, msg = validate_date_range(today.strftime("%Y-%m-%d"))
     assert ok, msg
 
