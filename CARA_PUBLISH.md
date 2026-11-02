@@ -17,6 +17,7 @@ Kalau Anda clone ulang dari nol, ikuti saja **[README.md](README.md)** bagian
 | CI (GitHub Actions) | ✅ hijau — <https://github.com/sioti2858-collab/ot-approval-bot/actions> |
 | Workflow bot | ✅ `.github/workflows/bot.yml` — scheduled tiap 5 menit, jalan ~50 menit/run |
 | Watchdog | ✅ `.github/workflows/watchdog.yml` — cek tiap 5 menit, peringatan Telegram + auto-restart bila mati |
+| Secret `GH_WATCHDOG_TOKEN` | ✅ terpasang (PAT ber-scope repo) → auto-restart aktif |
 | Keep-alive repo | ✅ `.github/workflows/keepalive.yml` — commit ringan harian, mencegah scheduled workflow dimatikan GitHub (idle 60 hari) |
 | Persistensi state | ✅ `services/state_store.py` — state form disimpan ke tab Google Sheets |
 | Deploy cloud | ✅ Railway (`Dockerfile` + `railway.json`) **atau** GitHub Actions gratis (repo public) |
