@@ -18,7 +18,7 @@ Kalau Anda clone ulang dari nol, ikuti saja **[README.md](README.md)** bagian
 | Workflow bot | ✅ `.github/workflows/bot.yml` — scheduled tiap 5 menit, jalan ~50 menit/run |
 | Watchdog | ✅ `.github/workflows/watchdog.yml` — cek tiap 5 menit, peringatan Telegram + auto-restart bila mati |
 | Secret `GH_WATCHDOG_TOKEN` | ✅ terpasang (PAT ber-scope repo) → auto-restart aktif |
-| Pinger eksternal | ⬜ opsional — Healthchecks.io (disarankan) atau UptimeRobot, cara pasang ada di README |
+| Pinger eksternal | ✅ terpasang — Healthchecks.io (check cron */5, grace 30 mnt) + secret `HC_PING_UUID` |
 | Fallback e-sign | ✅ `png/esign_missing.png` (placeholder berlabel; tanda tangan asli tidak di-commit karena repo public) |
 | Approver level 1 & 3 | ✅ satu orang — disengaja, sudah didokumentasikan (README + `config.py`) |
 | Keep-alive repo | ✅ `.github/workflows/keepalive.yml` — commit ringan harian, mencegah scheduled workflow dimatikan GitHub (idle 60 hari) |
