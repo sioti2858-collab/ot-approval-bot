@@ -333,27 +333,10 @@ mengirim peringatan.
 4. Simpan sebagai repository secret:
    **Settings → Secrets and variables → Actions → New repository secret**
    → nama `HC_PING_UUID` → isi UUID-nya
-5. Tambahkan satu langkah di `.github/workflows/watchdog.yml` (setelah
-   langkah "Simpan state pemeriksaan"):
-
-   ```yaml
-         - name: Kirim heartbeat ke Healthchecks.io
-           if: always()
-           env:
-             HC_PING_UUID: ${{ secrets.HC_PING_UUID }}
-           run: |
-             if [ -z "${HC_PING_UUID}" ]; then
-               echo "HC_PING_UUID belum diisi - heartbeat dilewati."
-               exit 0
-             fi
-             if [ "${{ steps.check.outputs.need_action }}" = "true" ]; then
-               curl -s -o /dev/null "https://hc-ping.com/${HC_PING_UUID}/fail"
-             else
-               curl -s -o /dev/null "https://hc-ping.com/${HC_PING_UUID}"
-             fi
-   ```
-
-   Selesai — tanpa secret ini, langkahnya otomatis dilewati (tidak error).
+5. **Sudah terpasang.** `watchdog.yml` sudah punya langkah "Kirim heartbeat
+   ke Healthchecks.io". Begitu secret `HC_PING_UUID` diisi, heartbeat langsung
+   aktif tanpa perlu mengedit kode lagi. Kalau secretnya kosong, langkah
+   tersebut otomatis dilewati (tidak error).
 
 **Opsi B — UptimeRobot (deteksi sisi GitHub, tanpa ubah kode)**
 

@@ -114,6 +114,27 @@ jobs:
           path: watchdog-state.txt
           key: watchdog-misses-${{ github.run_id }}
 
+      - name: Kirim heartbeat ke Healthchecks.io
+        if: always()
+        env:
+          HC_PING_UUID: ${{ secrets.HC_PING_UUID }}
+        run: |
+          set -uo pipefail
+          # Healthchecks.io memberi peringatan kalau ping ini tidak sampai
+          # dalam grace period - artinya scheduled workflow GitHub berhenti
+          # jalan. UUID-nya adalah pengenal check (bukan credential bot/API).
+          if [ -z "${HC_PING_UUID}" ]; then
+            echo "HC_PING_UUID belum diisi - heartbeat eksternal dilewati."
+            exit 0
+          fi
+          if [ "${{ steps.check.outputs.need_action }}" = "true" ]; then
+            curl -s -o /dev/null -w "heartbeat fail: HTTP %{http_code}\n" \
+              "https://hc-ping.com/${HC_PING_UUID}/fail"
+          else
+            curl -s -o /dev/null -w "heartbeat ok: HTTP %{http_code}\n" \
+              "https://hc-ping.com/${HC_PING_UUID}"
+          fi
+
       - name: Restart bot dan kirim peringatan ke Telegram
         if: steps.check.outputs.need_action == 'true'
         env:
