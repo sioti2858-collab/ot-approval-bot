@@ -309,6 +309,76 @@ Secret tambahan (opsional, hanya untuk auto-restart):
 > ⚠️ Kalau repo diubah jadi **private**, kuota 2.000 menit/bulan akan habis
 > (bot + watchdog butuh ~30.000 menit/bulan). Repo harus **public**.
 
+#### Pinger eksternal gratis (lapisan pengaman terakhir)
+
+Watchdog internal masih satu sama dengan GitHub Actions — kalau GitHub sendiri
+yang macet (lonjakan antrean runner, insiden platform, jadwal yang di-skip),
+watchdog ikut tidak jalan. Untuk menutup celah itu, pasang **pinger luar
+gratis** yang memberi tahu Anda lewat email/Telegram.
+
+**Opsi A — Healthchecks.io (disarankan: bisa deteksi jadwal yang macet)**
+
+Ini yang paling berguna karena "ping" dikirim **dari dalam** workflow, bukan
+diklik dari luar. Kalau workflow berhenti jalan, ping tidak sampai → Healthchecks.io
+mengirim peringatan.
+
+1. Daftar di <https://healthchecks.io> (gratis, 20 monitor per akun)
+2. **New Check** → pilih tipe **Cron**, isi:
+   - Schedule: `*/5 * * * *` (pola cron, sama seperti workflow bot)
+   - Grace period: **30 minutes** (batas toleransi telat)
+   - Notifications: **Email** (gratis). Kalau mau Notifikasi Telegram juga:
+     **Integrations → Add Telegram → masukkan token dari @BotFather**
+3. Setelah dibuat, salin **UUID check**-nya (mis. `d1e2f3a4-...`), atau
+   pakai alamat ping lengkap: `https://hc-ping.com/<uuid>`
+4. Simpan sebagai repository secret:
+   **Settings → Secrets and variables → Actions → New repository secret**
+   → nama `HC_PING_UUID` → isi UUID-nya
+5. Tambahkan satu langkah di `.github/workflows/watchdog.yml` (setelah
+   langkah "Simpan state pemeriksaan"):
+
+   ```yaml
+         - name: Kirim heartbeat ke Healthchecks.io
+           if: always()
+           env:
+             HC_PING_UUID: ${{ secrets.HC_PING_UUID }}
+           run: |
+             if [ -z "${HC_PING_UUID}" ]; then
+               echo "HC_PING_UUID belum diisi - heartbeat dilewati."
+               exit 0
+             fi
+             if [ "${{ steps.check.outputs.need_action }}" = "true" ]; then
+               curl -s -o /dev/null "https://hc-ping.com/${HC_PING_UUID}/fail"
+             else
+               curl -s -o /dev/null "https://hc-ping.com/${HC_PING_UUID}"
+             fi
+   ```
+
+   Selesai — tanpa secret ini, langkahnya otomatis dilewati (tidak error).
+
+**Opsi B — UptimeRobot (deteksi sisi GitHub, tanpa ubah kode)**
+
+1. Daftar di <https://uptimerobot.com> (gratis, 50 monitor, interval minimal 5 menit)
+2. **Add New Monitor** → tipe **HTTP(s)**:
+   - Friendly name: `OT Bot - GitHub Actions`
+   - URL (repo ini public, jadi tanpa token):
+     `https://api.github.com/repos/sioti2858-collab/ot-approval-bot/actions/workflows/bot.yml/runs?per_page=1`
+   - Monitoring Interval: **5 minutes**
+   - Keyword: `runs` (harus muncul di respons)
+3. **Alert Contacts** → isi email (gratis), atau hubungkan Telegram lewat
+   **Integrations → Telegram**
+4. **Create Monitor**
+
+> Catatan jujur: UptimeRobot hanya bisa melihat "API GitHub bisa dihubungi &
+> workflow masih ada". Ia **tidak** bisa tahu kalau jadwal GitHub berhenti
+> jalan — untuk itu tetap pakai Opsi A.
+
+**Alternatif lain yang gratis:** Better Stack (10 monitor, interval 3 menit),
+Freshping (10 monitor, 1 menit), Hetrix Tools (15 monitor, 1 menit).
+
+> ⚠️ GitHub API tanpa token membatasi 60 permintaan/jam per IP. Pemeriksa
+> UptimeRobot memakai IP bersama, jadi sesekali bisa muncul false alarm
+> (HTTP 403). Tambahan: kalau sering terjadi, andalkan Healthchecks.io (Opsi A).
+
 ### Deploy ke Railway
 
 Repo ini sudah berisi `Dockerfile` dan `railway.json`, jadi tidak perlu konfigurasi build manual.
