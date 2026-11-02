@@ -124,7 +124,7 @@ Semua konfigurasi ada di `.env` (lihat `.env.example` untuk daftar lengkap).
 | `LOGO_PATH` | `png/logo.png` | Logo di header PDF |
 | `APPROVER_1..3_USER_ID` | – | ID Telegram approver per level |
 | `APPROVER_1..3_NAME` / `_TITLE` | `Approver 1` dst. | Nama & jabatan di PDF |
-| `APPROVER_1..3_ESIGN` | `png/esign_approver_N.png` | File tanda tangan (PNG) |
+| `APPROVER_1..3_ESIGN` | `png/esign_missing.png` | File tanda tangan (PNG). **Fallback-nya placeholder berlabel**, bukan tanda tangan asli — lihat catatan di bawah |
 | `HR_USER_ID` | – | Penerima notifikasi & dokumen |
 | `MAX_FUTURE_DAYS` | `30` | Maksimal tanggal ke depan |
 | `MAX_PAST_DAYS` | `14` | Batas pengajuan lampiran |
@@ -138,6 +138,32 @@ Semua konfigurasi ada di `.env` (lihat `.env.example` untuk daftar lengkap).
 | `STATE_TAB_NAME` | `bot_state` | Nama tab Sheet untuk state |
 | `STATE_TTL_HOURS` | `24` | Lama state dianggap masih valid |
 | `DROP_PENDING_UPDATES` | `true` | Buang update belum diproses saat start (set `false` kalau sering restart) |
+
+**Catatan tanda tangan digital (e-sign).** Repo ini **public**, jadi tanda
+tangan asli tidak boleh di-commit — itu mempublikasikan tanda tangan pribadi
+orang. Tanda tangan dikirim lewat environment variable:
+
+- di cloud: `APPROVER_1..3_ESIGN_BASE64` (PNG di-encode base64, sebagai
+  *repository variable*), atau
+- di lokal: `APPROVER_1..3_ESIGN` = path file PNG.
+
+Kalau keduanya belum diisi, semua level memakai satu placeholder berlabel
+(`png/esign_missing.png`) dan bot mencetak peringatan saat start:
+
+```
+[PERINGATAN] E-sign approver level 1: env APPROVER_1_ESIGN_BASE64 dan
+APPROVER_1_ESIGN belum diisi, memakai fallback png/esign_missing.png
+```
+
+Jadi PDF menampilkan *"tanda tangan belum dikonfigurasi"* — bukan coretan
+yang bisa disalahartikan sebagai tanda tangan orang. Placeholder-nya bisa
+dibuat ulang dengan `python tools/make_missing_esign.py`.
+
+**Catatan approver yang sama di dua level.** `APPROVER_1_USER_ID` dan
+`APPROVER_3_USER_ID` boleh menunjuk orang yang sama (memang begitu di
+perusahaan ini — akan diubah nanti saat ada orang lain). Kode sudah
+menanganinya: pengajuan yang disetujui approver atas namanya sendiri
+dicatat atas **namanya sendiri**, bukan atas nama approver level lain.
 
 ---
 

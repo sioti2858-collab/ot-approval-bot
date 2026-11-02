@@ -21,7 +21,13 @@ load_dotenv()
 ASSET_DIR = os.getenv("ASSET_DIR", "local_assets")
 
 
-def _env_asset(b64_var: str, path_var: str, default_path: str, filename: str) -> str:
+def _env_asset(
+    b64_var: str,
+    path_var: str,
+    default_path: str,
+    filename: str,
+    label: str = "",
+) -> str:
     """
     Tentukan path file gambar (tanda tangan / logo).
 
@@ -29,7 +35,9 @@ def _env_asset(b64_var: str, path_var: str, default_path: str, filename: str) ->
     lalu path-nya dikembalikan. Ini dipakai saat bot jalan di cloud: file
     PNG tidak boleh ikut di-commit, jadi dikirim lewat environment variable.
 
-    Kalau <b64_var> kosong, path biasa dari <path_var> dipakai.
+    Kalau <b64_var> kosong, path biasa dari <path_var> dipakai. Kalau itu
+    juga kosong, <default_path> dipakai dan sebuah peringatan dicetak -
+    supaya operator tahu konfigurasinya belum lengkap (bukan diam-diam).
     """
     encoded = os.getenv(b64_var, "").strip()
     if encoded:
@@ -44,7 +52,17 @@ def _env_asset(b64_var: str, path_var: str, default_path: str, filename: str) ->
             # Asset gagal ditulis -> pakai path biasa (kalau ada), jangan
             # sampai seluruh bot gagal start.
             pass
-    return os.getenv(path_var, default_path)
+
+    explicit = os.getenv(path_var, "").strip()
+    if explicit:
+        return explicit
+
+    if label:
+        print(
+            f"[PERINGATAN] {label}: env {b64_var} dan {path_var} belum diisi, "
+            f"memakai fallback {default_path}"
+        )
+    return default_path
 
 
 def _env_int(name: str, default: int = 0) -> int:
@@ -93,7 +111,9 @@ COMPANY_NAME = os.getenv("COMPANY_NAME", "PT. Nama Perusahaan")
 
 # Path logo untuk header PDF. Bisa juga diisi lewat LOGO_BASE64 (PNG dalam
 # base64) supaya bisa dipakai di cloud tanpa menaruh file PNG di repo.
-LOGO_PATH = _env_asset("LOGO_BASE64", "LOGO_PATH", "png/logo.png", "logo.png")
+LOGO_PATH = _env_asset(
+    "LOGO_BASE64", "LOGO_PATH", "png/logo.png", "logo.png", label="Logo perusahaan",
+)
 
 # ---------------------------------------------------------------------------
 # Approver & HR
@@ -101,6 +121,21 @@ LOGO_PATH = _env_asset("LOGO_BASE64", "LOGO_PATH", "png/logo.png", "logo.png")
 
 # Setiap approver punya level sendiri (1 = paling awal).
 # name / title / user_id / esign semuanya diambil dari .env.
+#
+# CATATAN PENTING soal tanda tangan:
+#   Repo ini PUBLIK, jadi tanda tangan asli TIDAK boleh di-commit - itu
+#   mempublikasikan tanda tangan pribadi orang. Tanda tangan dikirim lewat
+#   environment variable (APPROVER_x_ESIGN_BASE64 untuk cloud, atau
+#   APPROVER_x_ESIGN untuk path file lokal). Semua level memakai satu
+#   placeholder berlabel (png/esign_missing.png) sebagai fallback, supaya
+#   PDF menampilkan "belum dikonfigurasi" - bukan coretan yang disalahartikan
+#   sebagai tanda tangan orang.
+#
+# CATATAN soal user_id yang sama:
+#   APPROVER_1_USER_ID dan APPROVER_3_USER_ID boleh menunjuk orang yang sama
+#   (ditentukan perusahaan). Kode sudah menangani ini: pengajuan yang
+#   disetujui approver atas namanya sendiri dicatat atas namanya sendiri,
+#   bukan atas nama approver level lain.
 APPROVERS = {
     "approval_1": {
         "name": os.getenv("APPROVER_1_NAME", "Approver 1"),
@@ -108,7 +143,8 @@ APPROVERS = {
         "user_id": _env_int("APPROVER_1_USER_ID"),
         "esign": _env_asset(
             "APPROVER_1_ESIGN_BASE64", "APPROVER_1_ESIGN",
-            "png/esign_approver_1.png", "esign_approver_1.png",
+            "png/esign_missing.png", "esign_approver_1.png",
+            label="E-sign approver level 1",
         ),
     },
     "approval_2": {
@@ -117,7 +153,8 @@ APPROVERS = {
         "user_id": _env_int("APPROVER_2_USER_ID"),
         "esign": _env_asset(
             "APPROVER_2_ESIGN_BASE64", "APPROVER_2_ESIGN",
-            "png/esign_approver_2.png", "esign_approver_2.png",
+            "png/esign_missing.png", "esign_approver_2.png",
+            label="E-sign approver level 2",
         ),
     },
     "approval_3": {
@@ -126,7 +163,8 @@ APPROVERS = {
         "user_id": _env_int("APPROVER_3_USER_ID"),
         "esign": _env_asset(
             "APPROVER_3_ESIGN_BASE64", "APPROVER_3_ESIGN",
-            "png/esign_approver_3.png", "esign_approver_3.png",
+            "png/esign_missing.png", "esign_approver_3.png",
+            label="E-sign approver level 3",
         ),
     },
 }

@@ -19,6 +19,8 @@ Kalau Anda clone ulang dari nol, ikuti saja **[README.md](README.md)** bagian
 | Watchdog | ✅ `.github/workflows/watchdog.yml` — cek tiap 5 menit, peringatan Telegram + auto-restart bila mati |
 | Secret `GH_WATCHDOG_TOKEN` | ✅ terpasang (PAT ber-scope repo) → auto-restart aktif |
 | Pinger eksternal | ⬜ opsional — Healthchecks.io (disarankan) atau UptimeRobot, cara pasang ada di README |
+| Fallback e-sign | ✅ `png/esign_missing.png` (placeholder berlabel; tanda tangan asli tidak di-commit karena repo public) |
+| Approver level 1 & 3 | ✅ satu orang — disengaja, sudah didokumentasikan (README + `config.py`) |
 | Keep-alive repo | ✅ `.github/workflows/keepalive.yml` — commit ringan harian, mencegah scheduled workflow dimatikan GitHub (idle 60 hari) |
 | Persistensi state | ✅ `services/state_store.py` — state form disimpan ke tab Google Sheets |
 | Deploy cloud | ✅ Railway (`Dockerfile` + `railway.json`) **atau** GitHub Actions gratis (repo public) |

@@ -459,5 +459,38 @@ Dua permintaan dari user:
 
 ---
 
+## Penambahan 2 November 2026 — e-sign & approver yang sama
+
+### 1. Placeholder e-sign di folder `png/`
+
+- ✅ **SELESAI.** Dulu `png/esign_approver_1/2/3.png` berisi coretan yang
+  saling hampir identik (selisih piksel 0,1-0,2). Kalau env variable e-sign
+  lupa diisi, PDF menampilkan coretan yang tidak jelas dan bisa disalahartikan
+  sebagai tanda tangan orang.
+- Repo ini **public**, jadi tanda tangan asli tidak boleh di-commit. Solusinya:
+  semua level memakai satu placeholder berlabel `png/esign_missing.png`
+  ("TANDA TANGAN BELUM DIKONFIGURASI"), dibuat oleh
+  `tools/make_missing_esign.py`. Bot juga mencetak peringatan saat start:
+
+  ```
+  [PERINGATAN] E-sign approver level 1: env APPROVER_1_ESIGN_BASE64 dan
+  APPROVER_1_ESIGN belum diisi, memakai fallback png/esign_missing.png
+  ```
+
+- Tanda tangan asli tetap dikirim lewat `APPROVER_x_ESIGN_BASE64` (cloud) atau
+  `APPROVER_x_ESIGN` (path file lokal di `local_assets/`, sudah di-.gitignore).
+
+### 2. `APPROVER_1_USER_ID` = `APPROVER_3_USER_ID`
+
+- ✅ **DOKUMENTASI — memang disengaja.** Level 1 dan level 3 saat ini
+  disetujui orang yang sama. Ini akan diubah nanti saat sudah ada orang lain.
+- Kode sudah menanganinya: pengajuan yang disetujui approver atas namanya
+  sendiri dicatat atas **namanya sendiri** (lihat `get_approver_name()`),
+  bukan atas nama approver level lain.
+- Catatan ditambahkan di `config.py` dan README.
+
+
+---
+
 *Catatan: dokumen ini adalah "catatan sebelum perbaikan" — dibuat lebih dulu sebagai
 catatan baseline, lalu diperbarui per-item selama pengerjaan.*
