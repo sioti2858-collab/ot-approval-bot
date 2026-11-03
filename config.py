@@ -196,10 +196,14 @@ APPROVAL_LEVELS = {
 # ---------------------------------------------------------------------------
 
 # Mode berbagi file di Google Drive:
+#   "restricted" -> hanya anggota folder/Shared Drive tujuan yang bisa membuka
+#                   file. Ini default yang aman karena PDF berisi data pribadi
+#                   (nama, dept, jam lembur, alasan).
 #   "link"       -> siapa pun yang punya link bisa Melihat & mengunduh (read only,
 #                   tidak bisa mengedit). File tidak bisa ditemukan lewat pencarian.
-#   "restricted" -> hanya anggota folder tujuan yang bisa membuka file.
-DRIVE_SHARE_MODE = os.getenv("DRIVE_SHARE_MODE", "link").strip().lower()
+#                   Pilih mode ini hanya kalau penerima tidak punya akun Google
+#                   dan Anda memang bersedia tautannya dibuka siapa saja.
+DRIVE_SHARE_MODE = os.getenv("DRIVE_SHARE_MODE", "restricted").strip().lower()
 
 # Upload PDF ke Google Drive.
 #

@@ -130,7 +130,7 @@ Semua konfigurasi ada di `.env` (lihat `.env.example` untuk daftar lengkap).
 | `MAX_PAST_DAYS` | `14` | Batas pengajuan lampiran |
 | `BUTTON_DEBOUNCE_SECONDS` | `5` | Jeda anti double-tap |
 | `DRIVE_UPLOAD_ENABLED` | `false` | Upload PDF ke Drive |
-| `DRIVE_SHARE_MODE` | `link` | `link` atau `restricted` |
+| `DRIVE_SHARE_MODE` | `restricted` | `restricted` atau `link` |
 | `EXTRA_DOCUMENT_RECIPIENT_USER_IDS` | kosong | Penerima tambahan dokumen |
 | `ALLOW_APPROVER_SELF_APPROVAL` | `true` | Approver boleh approve pengajuannya sendiri |
 | `ALLOW_SELF_APPROVAL` | `false` | Semua orang boleh approve sendiri (hanya uji coba) |
@@ -481,6 +481,41 @@ Nomor Telegram lain otomatis ditolak oleh `services/delivery.py`.
 > butuh arsip yang bisa dicari ulang (misal untuk audit), aktifkan **Google
 > Drive** — link-nya tersimpan permanen di kolom O.
 
+### Cara mengaktifkan arsip Google Drive
+
+Arsip Drive butuh **Shared Drive**, bukan folder biasa di My Drive. Alasannya:
+service account tidak punya storage quota di My Drive, jadi upload ke folder
+biasa ditolak dengan `403 storageQuotaExceeded`.
+
+1. Buat Shared Drive di Google Workspace.
+2. Tambahkan email service account Anda sebagai **member** (role: *Content
+   Manager*). Membagikan folder saja tidak cukup — Shared Drive punya kuota
+   sendiri dan hanya member-nya yang bisa menulis ke folder tujuan.
+3. Buat folder di dalam Shared Drive itu, lalu salin ID-nya dari URL browser
+   (`/folders/<ID_INI>`) ke `GOOGLE_DRIVE_FOLDER_ID`.
+4. Set `DRIVE_UPLOAD_ENABLED=true` — di `.env` untuk lokal, atau repository
+   variable `DRIVE_UPLOAD_ENABLED=true` untuk workflow cloud.
+5. Pilih mode berbagi:
+   - `restricted` (default, **disarankan**) — hanya anggota Shared Drive yang
+     bisa membuka file. PDF memuat data pribadi (nama, dept, jam lembur,
+     alasan), jadi ini mode yang aman.
+   - `link` — siapa pun yang punya tautan bisa melihat & mengunduh (read
+     only, tidak ditemukan lewat pencarian). Shared Drive harus mengizinkan
+     link sharing di level drive. Pilih mode ini hanya bila penerima tidak
+     punya akun Google dan Anda sengaja memutuskan tautannya boleh dibuka
+     siapa saja.
+
+> **Scope API.** Kode ini memakai scope `https://www.googleapis.com/auth/drive`
+> (penuh), bukan `drive.file`. Alasannya: file yang di-upload ke Shared Drive
+> dimiliki oleh Shared Drive, bukan oleh service account, sehingga scope
+> `drive.file` — yang hanya berlaku untuk file yang dibuat aplikasi itu sendiri
+> — tidak berlaku padanya dan permintaan berikutnya ditolak 403/404. Scope
+> penuh ini sama dengan yang sudah dipakai `services/sheets.py` dan
+> `services/state_store.py`, jadi kredensial bot sudah memegangnya.
+>
+> Semua request juga mengirim `supportsAllDrives=True`, yang wajib untuk
+> Shared Drive.
+
 ---
 
 ## Troubleshooting
@@ -490,6 +525,7 @@ Nomor Telegram lain otomatis ditolak oleh `services/delivery.py`.
 | `Unauthorized` saat start | `TELEGRAM_BOT_TOKEN` salah / ada spasi |
 | `ModuleNotFoundError` | `pip install -r requirements.txt` |
 | `403 storageQuotaExceeded` saat upload Drive | Service account tidak punya quota di My Drive → butuh Shared Drive, atau biarkan `DRIVE_UPLOAD_ENABLED=false` |
+| `404` / `403` saat upload ke Shared Drive | Service account belum jadi **member** Shared Drive, atau `GOOGLE_DRIVE_FOLDER_ID` menunjuk folder di luar Shared Drive |
 | `DefaultCredentialsError` | `credentials.json` tidak ada / rusak / path salah |
 | Kolom PDF URL kosong di Sheet | Header kolom N/O belum ada → `python tools/setup_sheet_columns.py` |
 | Bot tidak merespon | Proses `python main.py` sudah jalan? Cek `logs/bot_YYYYMMDD.log` |

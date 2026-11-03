@@ -17,7 +17,18 @@ from services.google_creds import get_credentials
 class DriveService:
     """Service for Google Drive operations"""
 
-    SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+    # Scope 'drive' (bukan 'drive.file').
+    #
+    # Kenapa tidak 'drive.file':
+    #   Scope itu hanya memberi akses ke file yang dibuat oleh aplikasi itu
+    #   sendiri. File yang di-upload ke Shared Drive DIMILIKI Shared Drive,
+    #   bukan service account, jadi grant 'drive.file' tidak berlaku padanya.
+    #   Akibatnya files().get()/permissions() berikutnya kena 404/403.
+    #
+    # Catatan: scope 'drive' ini sama dengan yang sudah dipakai
+    # services/sheets.py dan services/state_store.py, jadi kredensial yang
+    # dipakai bot ini sudah memegangnya sejak awal.
+    SCOPES = ["https://www.googleapis.com/auth/drive"]
 
     def __init__(self):
         self._service = None
@@ -74,11 +85,14 @@ class DriveService:
             resumable=True,
         )
 
-        # Upload the file
+        # Upload the file.
+        # supportsAllDrives=True wajib untuk Shared Drive: tanpa flag ini
+        # Drive API menganggap ID folder tujuan tidak ditemukan (404).
         file = service.files().create(
             body=file_metadata,
             media_body=media,
             fields="id, webViewLink",
+            supportsAllDrives=True,
         ).execute()
 
         # NOTE: the PDF holds personal data (name, department, overtime hours,
@@ -94,6 +108,7 @@ class DriveService:
                     "role": "reader",
                     "allowFileDiscovery": False,
                 },
+                supportsAllDrives=True,
             ).execute()
 
         return file.get("webViewLink")
@@ -104,6 +119,7 @@ class DriveService:
         file = service.files().get(
             fileId=file_id,
             fields="webViewLink",
+            supportsAllDrives=True,
         ).execute()
         return file.get("webViewLink")
 
@@ -122,6 +138,7 @@ class DriveService:
         folder = service.files().create(
             body=folder_metadata,
             fields="id",
+            supportsAllDrives=True,
         ).execute()
 
         return folder.get("id")

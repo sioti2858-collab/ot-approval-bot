@@ -116,7 +116,14 @@ jobs:
           LOGO_BASE64: ${{ vars.LOGO_BASE64 }}
           # Mode cloud: PDF hanya dikirim ke Telegram, tidak diarsipkan di disk
           SAVE_PDF_LOCALLY: 'false'
-          DRIVE_UPLOAD_ENABLED: 'false'
+          # Arsip Google Drive. Default 'false' supaya repo ini tetap jalan
+          # di akun lain yang belum menyiapkan Shared Drive.
+          # Nyalakan lewat repository variable DRIVE_UPLOAD_ENABLED=true.
+          DRIVE_UPLOAD_ENABLED: ${{ vars.DRIVE_UPLOAD_ENABLED || 'false' }}
+          # 'restricted' -> hanya anggota folder/shared drive yang bisa membuka
+          # 'link'       -> siapa pun yang punya link bisa membuka (read-only)
+          # Default 'restricted' karena PDF berisi data pribadi.
+          DRIVE_SHARE_MODE: ${{ vars.DRIVE_SHARE_MODE || 'restricted' }}
           # State form disimpan ke Google Sheets supaya tidak hilang saat restart
           STATE_PERSISTENCE_ENABLED: 'true'
           DROP_PENDING_UPDATES: 'false'
