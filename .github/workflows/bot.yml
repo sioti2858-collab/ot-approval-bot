@@ -98,6 +98,12 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_JSON: credentials/service_account.json
           GOOGLE_SHEET_ID: ${{ vars.GOOGLE_SHEET_ID }}
           GOOGLE_DRIVE_FOLDER_ID: ${{ vars.GOOGLE_DRIVE_FOLDER_ID }}
+          # Kredensial OAuth user untuk upload PDF ke Drive. Service account
+          # tidak punya storage quota (limit 0), jadi upload My Drive selalu
+          # ditolak 403. Kredensial ini diisi oleh tools/setup_drive_oauth.py.
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          GOOGLE_OAUTH_REFRESH_TOKEN: ${{ secrets.GOOGLE_OAUTH_REFRESH_TOKEN }}
           COMPANY_NAME: ${{ vars.COMPANY_NAME }}
           APPROVER_1_USER_ID: ${{ vars.APPROVER_1_USER_ID }}
           APPROVER_1_NAME: ${{ vars.APPROVER_1_NAME }}

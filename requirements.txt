@@ -5,6 +5,8 @@ python-telegram-bot==21.0
 gspread==5.12.4
 google-auth==2.28.1
 google-api-python-client==2.114.0
+# Untuk tools/setup_drive_oauth.py: alur consent OAuth di browser.
+google-auth-oauthlib==1.2.0
 
 # PDF Generation
 reportlab==4.1.0
@@ -13,3 +15,6 @@ reportlab==4.1.0
 python-dateutil==2.8.2
 pytz==2024.1
 python-dotenv==1.0.0
+
+# Enkripsi repository secret GitHub (tools/setup_*.py)
+pynacl==1.5.0

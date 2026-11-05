@@ -18,6 +18,10 @@ credentials.json
 *service_account*.json
 *.credentials.json
 
+# OAuth client dari Google Cloud Console (client_secret_*.json - NEVER commit)
+client_secret*.json
+*client_secret*.json
+
 # Aset lokal (logo & tanda tangan asli) - jangan di-commit
 local_assets/
 

@@ -9,6 +9,7 @@ oleh orang lain.
 
 import base64
 import os
+import sys
 
 from dotenv import load_dotenv
 
@@ -101,6 +102,42 @@ GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "")
 
 # ID folder Google Drive tujuan upload PDF.
 GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "")
+
+# ---------------------------------------------------------------------------
+# Kredensial OAuth user untuk Google Drive
+# ---------------------------------------------------------------------------
+#
+# Kenapa perlu OAuth, bukan service account?
+#
+# Service account TIDAK punya storage quota (diverifikasi: about().get()
+# membalas storageQuota.limit = "0"). Jadi upload PDF ke My Drive ditolak
+# dengan 403 "Service Accounts do not have storage quota". Shared Drive
+# bisa mengamankan kuota, tapi butuh akun Google Workspace + admin yang
+# menambahkan service account sebagai member - tidak selalu tersedia.
+#
+# Dengan OAuth milik user, file dibuat atas nama user itu, jadi kuotanya
+# mengikuti kuota akun user. Folder tujuan (GOOGLE_DRIVE_FOLDER_ID) pun
+# harus milik user yang sama.
+#
+# Cara memperoleh ketiganya: tools/setup_drive_oauth.py
+#
+# Isi:
+#   client_id      - dari OAuth client (Desktop app) di Google Cloud Console
+#   client_secret  - idem
+#   refresh_token  - hasil consent di browser, disimpan script tersebut
+#
+# Kalau kosong semua, upload Drive otomatis dimatikan (lihat
+# DRIVE_UPLOAD_ENABLED di bawah) supaya bot tidak gagal diam-diam.
+GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "").strip()
+GOOGLE_OAUTH_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "").strip()
+GOOGLE_OAUTH_REFRESH_TOKEN = os.getenv("GOOGLE_OAUTH_REFRESH_TOKEN", "").strip()
+
+# True kalau ketiga kredensial OAuth di atas lengkap.
+OAUTH_READY = bool(
+    GOOGLE_OAUTH_CLIENT_ID
+    and GOOGLE_OAUTH_CLIENT_SECRET
+    and GOOGLE_OAUTH_REFRESH_TOKEN
+)
 
 # ---------------------------------------------------------------------------
 # Perusahaan
@@ -207,19 +244,70 @@ DRIVE_SHARE_MODE = os.getenv("DRIVE_SHARE_MODE", "restricted").strip().lower()
 
 # Upload PDF ke Google Drive.
 #
-# CATATAN: service account TIDAK punya storage quota di My Drive, jadi upload ke
-# folder biasa akan gagal dengan 403 storageQuotaExceeded. Folder biasa juga
-# bukan Shared Drive. Selama upload dinonaktifkan, dokumen dikirim langsung ke
-# chat Telegram sebagai file terlampir dan tetap diarsipkan di folder pdfs/.
+# Ada dua jalur kredensial:
+#   1. OAuth user (GOOGLE_OAUTH_* terisi) - kuotanya mengikuti kuota akun
+#      user, jadi bisa upload ke My Drive. Ini jalur yang dipakai sekarang.
+#   2. Service account - hanya bisa kalau targetnya Shared Drive dan SA
+#      sudah jadi member. Service account tidak punya kuota My Drive
+#      (storageQuota.limit = 0), jadi upload ke folder biasa ditolak 403
+#      "Service Accounts do not have storage quota".
 #
-# Aktifkan (nilai true) setelah:
-#   1. Shared Drive dibuat,
-#   2. service account ditambahkan sebagai member (role: Content Manager),
-#   3. folder tujuan dibuat di dalam shared drive tersebut,
-#   4. GOOGLE_DRIVE_FOLDER_ID di-point ke folder itu.
+# Kalau DRIVE_UPLOAD_ENABLED=true tapi kredensial OAuth belum lengkap, upload
+# dinonaktifkan otomatis dan dicatat di log. Bot tetap jalan normal: PDF
+# dikirim ke Telegram, kolom O berisi penanda 'telegram'.
 DRIVE_UPLOAD_ENABLED = os.getenv("DRIVE_UPLOAD_ENABLED", "false").strip().lower() in (
     "1", "true", "yes", "on",
 )
+
+# Kredensial yang benar-benar dipakai untuk upload.
+#
+#   "oauth"            -> kredensial user (GOOGLE_OAUTH_*)
+#   "service_account"  -> service account (GOOGLE_SERVICE_ACCOUNT_JSON)
+#   ""                 -> belum ada yang siap; upload dimatikan
+#
+# Default "oauth" karena itu satu-satunya jalur yang bisa jalan di akun
+# tanpa Google Workspace.
+DRIVE_AUTH_MODE = os.getenv("DRIVE_AUTH_MODE", "oauth").strip().lower()
+
+
+def _service_account_usable() -> bool:
+    """
+    True kalau kredensial service account benar-benar bisa dipakai.
+
+    Hanya memeriksa string env var tidak cukup: nilainya bisa menunjuk file
+    yang tidak ada, atau JSON yang rusak. Fungsi ini memanggil pemeriksa
+    yang sama dengan yang dipakai saat runtime, tapi tanpa/network call -
+    jadi cukup untuk decide "upload enabled atau tidak".
+
+    Import lokal dipakai supaya config.py tidak dependen ke services/ saat
+    modul ini diimpor (menghindari import cycle).
+    """
+    try:
+        from services.google_creds import service_account_usable
+
+        return service_account_usable()
+    except Exception:  # noqa: BLE001 - config tidak boleh gagal start bot
+        return False
+
+
+# Mode auth yang benar-benar dipakai, setelah memperhitungkan mana yang siap.
+if DRIVE_AUTH_MODE == "oauth":
+    DRIVE_AUTH_READY = OAUTH_READY
+elif DRIVE_AUTH_MODE == "service_account":
+    DRIVE_AUTH_READY = _service_account_usable()
+else:
+    DRIVE_AUTH_READY = False
+
+# Kalau upload diminta tapi kredensial belum siap, jangan diam: catat
+# alasannya sekali saat modul dimuat supaya terlihat di log start bot.
+if DRIVE_UPLOAD_ENABLED and not DRIVE_AUTH_READY:
+    print(
+        "[DRIVE] DRIVE_UPLOAD_ENABLED=true tapi kredensial Google Drive belum "
+        f"lengkap (mode='{DRIVE_AUTH_MODE or 'tidak diset'}'). Upload dinonaktifkan; "
+        "PDF tetap dikirim ke Telegram.",
+        file=sys.stderr,
+    )
+    DRIVE_UPLOAD_ENABLED = False
 
 # ---------------------------------------------------------------------------
 # Penyimpanan dokumen

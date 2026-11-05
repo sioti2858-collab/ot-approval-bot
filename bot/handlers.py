@@ -1345,19 +1345,23 @@ async def handle_approval(query, user_id, data, approved: bool):
                     )
 
                 # Upload ke Google Drive hanya kalau DRIVE_UPLOAD_ENABLED=true.
-                # Secara default nonaktif: service account tidak punya storage
-                # quota di My Drive, jadi upload ke folder biasa ditolak 403.
-                # Aktifkan setelah Shared Drive tersedia.
+                # config.py sudah mematikan flag ini otomatis kalau kredensial
+                # OAuth belum lengkap, jadi blok di sini tidak akan jalan
+                # dengan kredensial yang belum siap.
                 if DRIVE_UPLOAD_ENABLED:
                     try:
                         drive_service = get_drive_service()
                         pdf_url = drive_service.upload_pdf(pdf_content, drive_file_name)
                         logger.info(f"PDF uploaded to Drive: {pdf_url}")
                     except Exception as upload_error:
+                        # Upload gagal tidak boleh menghentikan alur: PDF tetap
+                        # dikirim ke Telegram dan kolom O tetap terisi penanda.
                         logger.error(f"Upload to Drive failed: {upload_error}")
                         pdf_url = None
                 else:
-                    logger.info("Drive upload disabled - PDF hanya diarsipkan lokal")
+                    logger.info(
+                        "Drive upload disabled - PDF hanya dikirim via Telegram"
+                    )
                     pdf_url = None
 
                 if pdf_url:

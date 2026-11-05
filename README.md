@@ -131,6 +131,10 @@ Semua konfigurasi ada di `.env` (lihat `.env.example` untuk daftar lengkap).
 | `BUTTON_DEBOUNCE_SECONDS` | `5` | Jeda anti double-tap |
 | `DRIVE_UPLOAD_ENABLED` | `false` | Upload PDF ke Drive |
 | `DRIVE_SHARE_MODE` | `restricted` | `restricted` atau `link` |
+| `DRIVE_AUTH_MODE` | `oauth` | `oauth` (user) atau `service_account` |
+| `GOOGLE_OAUTH_CLIENT_ID` | – | OAuth client ID (Desktop app) |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | – | OAuth client secret |
+| `GOOGLE_OAUTH_REFRESH_TOKEN` | – | Hasil consent OAuth |
 | `EXTRA_DOCUMENT_RECIPIENT_USER_IDS` | kosong | Penerima tambahan dokumen |
 | `ALLOW_APPROVER_SELF_APPROVAL` | `true` | Approver boleh approve pengajuannya sendiri |
 | `ALLOW_SELF_APPROVAL` | `false` | Semua orang boleh approve sendiri (hanya uji coba) |
@@ -483,9 +487,42 @@ Nomor Telegram lain otomatis ditolak oleh `services/delivery.py`.
 
 ### Cara mengaktifkan arsip Google Drive
 
-Arsip Drive butuh **Shared Drive**, bukan folder biasa di My Drive. Alasannya:
-service account tidak punya storage quota di My Drive, jadi upload ke folder
-biasa ditolak dengan `403 storageQuotaExceeded`.
+Ada **dua jalur kredensial**. Pilih yang tersedia di lingkungan Anda.
+
+#### Jalur A — OAuth user (tidak butuh Google Workspace) ⭐
+
+Service account **tidak punya storage quota** — `about().get()` membalas
+`storageQuota.limit = "0"`. Jadi upload ke My Drive selalu ditolak dengan
+403 *"Service Accounts do not have storage quota"*. Dengan OAuth milik user,
+file dibuat atas nama user, jadi kuotanya mengikuti kuota akun user.
+
+1. Di [Google Cloud Console](https://console.cloud.google.com/), buka project
+   yang sama dengan yang dipakai bot (`ot-approval-bot`).
+2. **APIs & Services → OAuth consent screen**
+   - tipe: *External*
+   - isi app name, user support email, developer email
+   - tambahkan email Anda sebagai **Test user**
+3. **APIs & Services → Credentials → Create Credentials → OAuth client ID**
+   - Application type: **Desktop app** (wajib, bukan Web application)
+   - unduh `client_secret_*.json`
+4. Jalankan skrip setup (browser terbuka, login sebagai **pemilik folder
+   Drive tujuan**, lalu setujui izin):
+   ```bash
+   python tools/setup_drive_oauth.py path/ke/client_secret_*.json
+   ```
+   Skrip ini menyimpan tiga nilai sebagai GitHub secret
+   (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`,
+   `GOOGLE_OAUTH_REFRESH_TOKEN`) dan menyalakan repository variable
+   `DRIVE_UPLOAD_ENABLED=true` + `DRIVE_SHARE_MODE=restricted`. Nilai
+   kredensial tidak pernah dicetak ke terminal.
+5. Isi `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` /
+   `GOOGLE_OAUTH_REFRESH_TOKEN` juga di `.env` kalau menjalankan bot secara
+   lokal.
+
+> Folder tujuan (`GOOGLE_DRIVE_FOLDER_ID`) **harus milik akun yang sama**
+> dengan yang Anda login di langkah 4. Kalau berbeda, upload ditolak.
+
+#### Jalur B — Shared Drive (kalau perusahaan punya Google Workspace)
 
 1. Buat Shared Drive di Google Workspace.
 2. Tambahkan email service account Anda sebagai **member** (role: *Content
@@ -493,17 +530,17 @@ biasa ditolak dengan `403 storageQuotaExceeded`.
    sendiri dan hanya member-nya yang bisa menulis ke folder tujuan.
 3. Buat folder di dalam Shared Drive itu, lalu salin ID-nya dari URL browser
    (`/folders/<ID_INI>`) ke `GOOGLE_DRIVE_FOLDER_ID`.
-4. Set `DRIVE_UPLOAD_ENABLED=true` — di `.env` untuk lokal, atau repository
-   variable `DRIVE_UPLOAD_ENABLED=true` untuk workflow cloud.
-5. Pilih mode berbagi:
-   - `restricted` (default, **disarankan**) — hanya anggota Shared Drive yang
-     bisa membuka file. PDF memuat data pribadi (nama, dept, jam lembur,
-     alasan), jadi ini mode yang aman.
-   - `link` — siapa pun yang punya tautan bisa melihat & mengunduh (read
-     only, tidak ditemukan lewat pencarian). Shared Drive harus mengizinkan
-     link sharing di level drive. Pilih mode ini hanya bila penerima tidak
-     punya akun Google dan Anda sengaja memutuskan tautannya boleh dibuka
-     siapa saja.
+4. Set `DRIVE_AUTH_MODE=service_account` dan `DRIVE_UPLOAD_ENABLED=true`.
+
+#### Mode berbagi (kedua jalur)
+
+- `restricted` (default, **disarankan**) — hanya anggota folder/Shared Drive
+  tujuan yang bisa membuka file. PDF memuat data pribadi (nama, dept, jam
+  lembur, alasan), jadi ini mode yang aman.
+- `link` — siapa pun yang punya tautan bisa melihat & mengunduh (read only,
+  tidak ditemukan lewat pencarian). Pilih mode ini hanya bila penerima tidak
+  punya akun Google dan Anda sengaja memutuskan tautannya boleh dibuka siapa
+  saja.
 
 > **Scope API.** Kode ini memakai scope `https://www.googleapis.com/auth/drive`
 > (penuh), bukan `drive.file`. Alasannya: file yang di-upload ke Shared Drive
@@ -516,6 +553,10 @@ biasa ditolak dengan `403 storageQuotaExceeded`.
 > Semua request juga mengirim `supportsAllDrives=True`, yang wajib untuk
 > Shared Drive.
 
+> **Kalau upload gagal**, bot **tidak** berhenti: PDF tetap dikirim ke
+> Telegram dan kolom O tetap berisi penanda `telegram`. Yang berubah hanya
+> tidak adanya arsip di Drive. Error lengkapnya ada di log.
+
 ---
 
 ## Troubleshooting
@@ -524,8 +565,9 @@ biasa ditolak dengan `403 storageQuotaExceeded`.
 |---|---|
 | `Unauthorized` saat start | `TELEGRAM_BOT_TOKEN` salah / ada spasi |
 | `ModuleNotFoundError` | `pip install -r requirements.txt` |
-| `403 storageQuotaExceeded` saat upload Drive | Service account tidak punya quota di My Drive → butuh Shared Drive, atau biarkan `DRIVE_UPLOAD_ENABLED=false` |
+| `403 storageQuotaExceeded` saat upload Drive | Service account tidak punya quota di My Drive → pakai OAuth user (`tools/setup_drive_oauth.py`) atau Shared Drive |
 | `404` / `403` saat upload ke Shared Drive | Service account belum jadi **member** Shared Drive, atau `GOOGLE_DRIVE_FOLDER_ID` menunjuk folder di luar Shared Drive |
+| Log `[DRIVE] ... upload dinonaktifkan` | `DRIVE_UPLOAD_ENABLED=true` tapi kredensial OAuth belum lengkap → jalankan `tools/setup_drive_oauth.py` |
 | `DefaultCredentialsError` | `credentials.json` tidak ada / rusak / path salah |
 | Kolom PDF URL kosong di Sheet | Header kolom N/O belum ada → `python tools/setup_sheet_columns.py` |
 | Bot tidak merespon | Proses `python main.py` sudah jalan? Cek `logs/bot_YYYYMMDD.log` |

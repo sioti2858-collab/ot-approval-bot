@@ -23,7 +23,7 @@ import os
 
 from google.oauth2 import service_account
 
-from config import GOOGLE_SERVICE_ACCOUNT_JSON
+import config
 
 # Pesan error yang enak dibacauser
 ERR_EMPTY = (
@@ -39,7 +39,9 @@ ERR_INVALID = (
 
 def _read_raw() -> str:
     """Ambil isi mentah dari env var: path file atau JSON langsung."""
-    raw = GOOGLE_SERVICE_ACCOUNT_JSON or ""
+    # Dibaca dari config saat dipanggil, bukan saat modul diimpor, supaya
+    # nilai terbaru selalu terpakai.
+    raw = config.GOOGLE_SERVICE_ACCOUNT_JSON or ""
     stripped = raw.strip()
 
     # Path file?
@@ -86,6 +88,61 @@ def get_credentials(scopes):
     """Kredensial service account untuk scope yang diminta."""
     info = load_service_account_info()
     return service_account.Credentials.from_service_account_info(info, scopes=scopes)
+
+
+def service_account_usable() -> bool:
+    """
+    True kalau kredensial service account benar-benar bisa dipakai.
+
+    Hanya memeriksa string env var tidak cukup: nilainya bisa menunjuk file
+    yang tidak ada, atau JSON yang rusak. Dipakai config.py untuk deciding
+    apakah upload Drive boleh dinyalakan.
+    """
+    try:
+        load_service_account_info()
+    except (ValueError, FileNotFoundError, OSError):
+        return False
+    return True
+
+
+def get_user_credentials(scopes):
+    """
+    Kredensial OAuth milik user (bukan service account).
+
+    Dipakai untuk Google Drive. Service account tidak punya storage quota
+    (storageQuota.limit = 0), jadi upload PDF selalu ditolak 403 "Service
+    Accounts do not have storage quota". Dengan OAuth, file dibuat atas nama
+    user sehingga kuotanya mengikuti kuota akun user.
+
+    Yang disimpan hanya refresh token; access token diambil ulang otomatis
+    oleh google-auth saat kedaluwarsa. Jadi script setup cukup dijalankan
+    sekali.
+    """
+    from google.oauth2.credentials import Credentials as UserCredentials
+
+    missing = []
+    if not config.GOOGLE_OAUTH_CLIENT_ID:
+        missing.append("GOOGLE_OAUTH_CLIENT_ID")
+    if not config.GOOGLE_OAUTH_CLIENT_SECRET:
+        missing.append("GOOGLE_OAUTH_CLIENT_SECRET")
+    if not config.GOOGLE_OAUTH_REFRESH_TOKEN:
+        missing.append("GOOGLE_OAUTH_REFRESH_TOKEN")
+
+    if missing:
+        raise ValueError(
+            "Kredensial OAuth Google Drive belum lengkap: "
+            + ", ".join(missing)
+            + ". Jalankan tools/setup_drive_oauth.py untuk mendapatkannya."
+        )
+
+    return UserCredentials(
+        token=None,
+        refresh_token=config.GOOGLE_OAUTH_REFRESH_TOKEN,
+        token_uri="https://oauth2.googleapis.com/token",
+        client_id=config.GOOGLE_OAUTH_CLIENT_ID,
+        client_secret=config.GOOGLE_OAUTH_CLIENT_SECRET,
+        scopes=list(scopes),
+    )
 
 
 def validate_credentials() -> None:

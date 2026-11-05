@@ -3,21 +3,23 @@ Google Drive Service
 Handles file uploads to Google Drive
 """
 
-import json
 import io
-from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 from typing import Optional
 
-from config import GOOGLE_DRIVE_FOLDER_ID, DRIVE_SHARE_MODE
-from services.google_creds import get_credentials
+from config import (
+    DRIVE_AUTH_MODE,
+    DRIVE_SHARE_MODE,
+    GOOGLE_DRIVE_FOLDER_ID,
+)
+from services.google_creds import get_credentials, get_user_credentials
 
 
 class DriveService:
     """Service for Google Drive operations"""
 
-    # Scope 'drive' (bukan 'drive.file').
+    # Scope 'drive' (penuh), bukan 'drive.file'.
     #
     # Kenapa tidak 'drive.file':
     #   Scope itu hanya memberi akses ke file yang dibuat oleh aplikasi itu
@@ -36,7 +38,13 @@ class DriveService:
     def _get_service(self):
         """Initialize Google Drive service"""
         if self._service is None:
-            creds = get_credentials(self.SCOPES)
+            if DRIVE_AUTH_MODE == "oauth":
+                # Kredensial user: file dibuat atas nama user, jadi quota
+                # mengikuti quota akun user (service account punya quota 0).
+                creds = get_user_credentials(self.SCOPES)
+            else:
+                # Hanya bisa upload ke Shared Drive; My Drive ditolak 403.
+                creds = get_credentials(self.SCOPES)
             self._service = build("drive", "v3", credentials=creds)
         return self._service
 
