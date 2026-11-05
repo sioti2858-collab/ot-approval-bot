@@ -132,20 +132,39 @@ def set_variable(github_token: str, name: str, value: str) -> None:
     )
 
 
-def load_client_info(path) -> dict:
-    """Baca client_secret_*.json yang diunduh dari Google Cloud Console."""
+def load_client_config(path) -> dict:
+    """
+    Baca client_secret_*.json yang diunduh dari Google Cloud Console.
+
+    Mengembalikan dict LUAR apa adanya (mis. {"installed": {...}}).
+    Struktur luar ini wajib: google_auth_oauthlib membacanya untuk
+    menentukan tipe aplikasi (installed vs web).
+    """
     path = Path(path)
     with path.open("r", encoding="utf-8") as handle:
         data = json.load(handle)
 
-    # File dari Console: {"installed": {...}} untuk tipe Desktop app.
+    if not isinstance(data, dict):
+        raise SystemExit("Isi file client_secret tidak valid.")
+
     for key in ("installed", "web"):
         if key in data:
-            return data[key]
+            return data
+
     raise SystemExit(
         "Format file tidak dikenali. Pastikan file client_secret_*.json "
         "dari OAuth client bertipe 'Desktop app'."
     )
+
+
+def client_id_and_secret(client_config: dict) -> tuple[str, str]:
+    """Ambil client_id dan client_secret dari config OAuth."""
+    inner = client_config.get("installed") or client_config.get("web") or {}
+    client_id = inner.get("client_id", "")
+    client_secret = inner.get("client_secret", "")
+    if not client_id or not client_secret:
+        raise SystemExit("client_id / client_secret tidak terbaca dari file.")
+    return client_id, client_secret
 
 
 def check_upload_access(refresh_token: str, client_id: str, client_secret: str,
@@ -236,12 +255,8 @@ def main() -> int:
         print(f"File tidak ditemukan: {path}", file=sys.stderr)
         return 1
 
-    client_info = load_client_info(path)
-    client_id = client_info.get("client_id", "")
-    client_secret = client_info.get("client_secret", "")
-    if not client_id or not client_secret:
-        print("client_id / client_secret tidak terbaca dari file.", file=sys.stderr)
-        return 1
+    client_config = load_client_config(path)
+    client_id, client_secret = client_id_and_secret(client_config)
 
     try:
         from google_auth_oauthlib.flow import InstalledAppFlow
@@ -265,7 +280,7 @@ def main() -> int:
     print()
 
     flow = InstalledAppFlow.from_client_config(
-        client_info, scopes=SCOPES, redirect_uri="http://localhost"
+        client_config, scopes=SCOPES, redirect_uri="http://localhost"
     )
     creds = flow.run_local_server(port=0, prompt="consent")
 
